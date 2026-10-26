@@ -1,4 +1,4 @@
-# Go Dutch（記帳分帳 App）
+# Chip In 啦／Chiping In（記帳分帳 App）
 
 先輸入金額、再決定去哪裡的記帳 App：個人記帳和朋友分帳放在同一個地方。iOS、Android，以及網頁預覽。
 

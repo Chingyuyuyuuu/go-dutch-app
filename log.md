@@ -14,6 +14,17 @@
 
 ---
 
+## 2026-10-27｜App 改名：Chip In 啦／Chiping In
+
+**做了什麼**：
+- `app.config.ts`：App 名稱改為 `Chiping In`。用 `locales` 讓繁體中文手機（zh-Hant、zh-TW）的桌面名稱顯示 `Chip In 啦`，iOS 的相簿權限說明也有中文版；iOS 開啟 `CFBundleAllowMixedLocalizations`。
+- 介面文字：登入頁標題、邀請訊息、通知／照片權限提示、小工具說明裡的 Go Dutch，英文改成 Chiping In，中文改成 Chip In 啦。
+- 沒改：EAS 專案 slug `godutchapp`（要和 expo.dev 一致）、深層連結 `godutch://`、Bundle ID `com.godutch.app`（送商店前再決定，見 todo）。
+
+**驗證**：typecheck、lint、`npm test` 通過；`expo config` 確認名稱與 zh-Hant 設定正確。桌面上的中文名稱要等 development build 才看得到，Expo Go 和網頁版會顯示 Expo Go／網頁標題。
+
+---
+
 ## 2026-10-27｜全面檢查、修正同步錯誤、部署 Phase 1–5
 
 **階段**：Phase 4–5 收尾

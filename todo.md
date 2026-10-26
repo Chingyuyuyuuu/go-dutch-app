@@ -17,7 +17,9 @@
 - [ ] **設定自動部署**：GitHub repo → Settings → Secrets and variables → Actions → 新增 Secret `EXPO_TOKEN`（expo.dev → Account settings → Access tokens 產生）。之後 push 到 `main` 就會自動部署（詳見 README）
 - [ ] 把網站網址 `https://chipinla.expo.app` 填到 GitHub Variable `EXPO_PUBLIC_WEB_URL` 和 `.env.local` 的 `EXPO_PUBLIC_WEB_URL=`，手機分享的邀請連結才會是網址；沒填的話手機上會分享邀請碼
 - [x] **部署網頁預覽**：正式網址 https://chipinla.expo.app（2026-10-27 部署 Phase 1–5）
-- [ ] **決定 App 正式名稱與 Bundle ID / Package name**：目前暫用名稱 `Go Dutch`、ID `com.godutch.app`（在 `app.config.ts`），第一次送商店前一定要定案
+- [x] **App 名稱**：中文 `Chip In 啦`、英文 `Chiping In`（2026-10-27 決定）
+- [ ] **決定 Bundle ID / Package name**：目前暫用 `com.godutch.app`（在 `app.config.ts`），第一次送商店前一定要定案，之後就不能改。要不要改成跟新名稱一致（例如 `com.chipinla.app`）？
+- [ ] 確認英文名稱拼法：目前照你寫的 `Chiping In`；英文一般拼成 `Chipping In`（兩個 p）
 - [ ] 要不要刪掉重複的 PDF：`docs/design-handoff/design/記帳分帳App_功能與目標客群.pdf` 與 `docs/design-handoff/spec/features-and-audience-zh-TW.pdf` 內容完全相同
 - [ ] 確認 `docs/design-handoff/`（約 5.8 MB）要不要進 git；不想放的話加到 `.gitignore`
 - [ ] `.claude/settings.json`：Expo 工具自動建立的檔案，會在這個專案啟用 Expo 的 Claude 外掛。要保留就留著，不要就刪掉
