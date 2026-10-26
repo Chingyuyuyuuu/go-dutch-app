@@ -47,6 +47,15 @@ export const supabaseAuth: AuthService = {
   },
   signInWithGoogle: () => oauth('google'),
   signInWithApple: () => oauth('apple'),
+  deleteAccount: async (homePhotoPath) => {
+    const sb = getSupabase();
+    if (homePhotoPath) await sb.storage.from('home-photos').remove([homePhotoPath]);
+    const { error } = await sb.rpc('delete_my_account');
+    if (error) return 'offline';
+    // The account is gone, so its session can only be forgotten here.
+    await sb.auth.signOut({ scope: 'local' });
+    return 'ok';
+  },
   signOut: async () => {
     const { error } = await getSupabase().auth.signOut();
     // Offline: at least forget the session on this device.

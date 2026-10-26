@@ -1,11 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocales } from 'expo-localization';
+import { getCalendars, useLocales } from 'expo-localization';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import i18n, { resolveLocale, setAppLocale } from '@/i18n';
 import type { LocalDate } from '@/lib/date';
 import { todayLocal } from '@/lib/date';
-import { DEFAULT_PROFILE, type Entry, type Ledger, type LedgerPref, type UserProfile } from '@/lib/domain';
+import {
+  DEFAULT_PROFILE,
+  type BankAccount,
+  type Entry,
+  type Ledger,
+  type LedgerPref,
+  type Recurring,
+  type UserProfile,
+} from '@/lib/domain';
 import { orderLedgers } from '@/lib/ledgers';
 import { useToast } from '@/ui/Toast';
 
@@ -16,15 +24,16 @@ import { newId } from './ids';
 import { kv } from './local/kv';
 import { LocalRepo } from './local/LocalRepo';
 import { LocalStore } from './local/LocalStore';
-import type { DataRepo } from './repo';
+import type { DataRepo, FriendsState } from './repo';
 import { getSupabase, isSupabaseConfigured } from './supabase/client';
+import { supabaseMedia } from './supabase/photos';
 import { SupabaseRemote } from './supabase/SupabaseRemote';
 import { SyncEngine } from './sync/SyncEngine';
 import { onForeground, onReconnect } from './sync/triggers';
 
 const SESSION_KEY = 'go-dutch/session';
-const DEMO_NAMESPACE = 'gd/v1/demo';
-const userNamespace = (uid: string) => `gd/v1/user/${uid}`;
+const DEMO_NAMESPACE = 'gd/v2/demo';
+const userNamespace = (uid: string) => `gd/v2/user/${uid}`;
 
 type Session =
   | { status: 'loading' }
@@ -46,6 +55,14 @@ type AppData = {
   loaded: boolean;
   /** Changes on this device not uploaded yet. */
   pending: number;
+  friends: FriendsState;
+  /** When each ledger was last opened on this device. */
+  seen: Record<string, number>;
+  /** My recurring payments, plus recurring splits of my shared ledgers. */
+  recurring: Recurring[];
+  banks: BankAccount[];
+  /** Accounts only: deletes the account on the server, then this device's copy, and signs out. */
+  deleteAccount: () => Promise<'ok' | 'offline'>;
   startDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   resetDemo: () => Promise<void>;
@@ -63,13 +80,15 @@ async function openDemo(fresh = false): Promise<DataRepo> {
 /** The signed-in user's local copy plus background sync with Supabase. */
 async function openCloud(uid: string, onError: (e: unknown) => void) {
   const store = await LocalStore.openOrCreate(kv, userNamespace(uid));
-  const engine = new SyncEngine(store, new SupabaseRemote(getSupabase(), uid), {
+  const timeZone = () => getCalendars()[0]?.timeZone ?? null;
+  const engine = new SyncEngine(store, new SupabaseRemote(getSupabase(), uid, timeZone), {
     newId,
     onError,
     triggers: [onReconnect, onForeground],
   });
   engine.start();
-  return { repo: new LocalRepo('cloud', uid, store, newId, engine), stop: () => engine.stop() };
+  const media = supabaseMedia(getSupabase(), uid, newId);
+  return { repo: new LocalRepo('cloud', uid, store, newId, engine, media), stop: () => engine.stop() };
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
@@ -151,6 +170,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<Tagged<Record<string, LedgerPref>>>({ repo: null, value: {} });
   const [ready, setReady] = useState<Tagged<boolean>>({ repo: null, value: false });
   const [pending, setPending] = useState<Tagged<number>>({ repo: null, value: 0 });
+  const [friends, setFriends] = useState<Tagged<FriendsState>>({ repo: null, value: EMPTY_FRIENDS });
+  const [seen, setSeen] = useState<Tagged<Record<string, number>>>({ repo: null, value: {} });
+  const [recurring, setRecurring] = useState<Tagged<Recurring[]>>({ repo: null, value: [] });
+  const [banks, setBanks] = useState<Tagged<BankAccount[]>>({ repo: null, value: [] });
 
   useEffect(() => {
     if (!repo) return;
@@ -160,8 +183,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       repo.subscribeLedgerPrefs((value) => setPrefs({ repo, value })),
       repo.subscribeReady((value) => setReady({ repo, value })),
       repo.subscribePending((value) => setPending({ repo, value })),
+      repo.subscribeFriends((value) => setFriends({ repo, value })),
+      repo.subscribeSeen((value) => setSeen({ repo, value })),
+      repo.subscribeRecurring((value) => setRecurring({ repo, value })),
+      repo.subscribeBanks((value) => setBanks({ repo, value })),
     ];
     return () => unsubs.forEach((u) => u());
+  }, [repo]);
+
+  // The demo records due recurring charges on the device (the server does it for accounts).
+  useEffect(() => {
+    if (repo?.kind !== 'demo') return;
+    repo.catchUpRecurring();
+    return onForeground(() => repo.catchUpRecurring());
   }, [repo]);
 
   const current = <T,>(tagged: Tagged<T>, fallback: T) => (tagged.repo === repo ? tagged.value : fallback);
@@ -169,6 +203,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const ledgersValue = current(ledgers, EMPTY_LEDGERS);
   const prefsValue = current(prefs, EMPTY_PREFS);
   const pendingValue = current(pending, 0);
+  const friendsValue = current(friends, EMPTY_FRIENDS);
+  const seenValue = current(seen, EMPTY_SEEN);
+  const recurringValue = current(recurring, EMPTY_RECURRING);
+  const banksValue = current(banks, EMPTY_BANKS);
   const loaded = !!repo && current(ready, false) && ledgers.repo === repo && prefs.repo === repo;
 
   useEffect(() => {
@@ -187,6 +225,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (authUser) await supabaseAuth.signOut();
   }, [authUser]);
 
+  const homePhoto = profileValue.homePhoto;
+  const deleteAccount = useCallback(async () => {
+    if (!authUser) return 'offline' as const;
+    const result = await supabaseAuth.deleteAccount(homePhoto);
+    if (result !== 'ok') return result;
+    await AsyncStorage.removeItem(SESSION_KEY);
+    setDemoChosen(false);
+    // Give the closing sync a moment to finish its last write, then forget this account's data here.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await LocalStore.clear(kv, userNamespace(authUser.uid));
+    return result;
+  }, [authUser, homePhoto]);
+
   const resetDemo = useCallback(async () => {
     setDemoRepo(await openDemo(true));
   }, []);
@@ -203,6 +254,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       prefs: prefsValue,
       loaded,
       pending: pendingValue,
+      friends: friendsValue,
+      seen: seenValue,
+      recurring: recurringValue,
+      banks: banksValue,
+      deleteAccount,
       startDemo,
       signOut,
       resetDemo,
@@ -216,6 +272,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       prefsValue,
       loaded,
       pendingValue,
+      friendsValue,
+      seenValue,
+      recurringValue,
+      banksValue,
+      deleteAccount,
       startDemo,
       signOut,
       resetDemo,
@@ -229,6 +290,13 @@ type Tagged<T> = { repo: DataRepo | null; value: T };
 const EMPTY_LEDGERS: Ledger[] = [];
 const EMPTY_PREFS: Record<string, LedgerPref> = {};
 const EMPTY_ENTRIES: Entry[] = [];
+const EMPTY_FRIENDS: FriendsState = { friends: [], placeholders: [], invites: [] };
+const EMPTY_SEEN: Record<string, number> = {};
+const EMPTY_RECURRING: Recurring[] = [];
+const EMPTY_BANKS: BankAccount[] = [];
+
+/** Entries of every date, for shared ledgers (balances need all of them). */
+export const ALL_TIME = '0000-01-01';
 
 export function useAppData(): AppData {
   const value = useContext(AppDataContext);
@@ -256,4 +324,32 @@ export function useLedgerEntries(ledgerId: string | undefined, since: LocalDate)
     return repo.subscribeEntries(ledgerId, since, (entries) => setState({ key, entries }));
   }, [repo, ledgerId, since, key]);
   return state.key === key ? state.entries : EMPTY_ENTRIES;
+}
+
+/** Live entries of several ledgers from `since` (inclusive), in one list. */
+export function useEntriesOf(ledgerIds: string[], since: LocalDate): Entry[] {
+  const { repo } = useAppData();
+  const idsKey = ledgerIds.join(',');
+  const key = repo ? `${repo.kind}:${repo.uid}:${idsKey}:${since}` : null;
+  const [state, setState] = useState<{ key: string | null; byLedger: Record<string, Entry[]> }>({
+    key: null,
+    byLedger: {},
+  });
+  useEffect(() => {
+    if (!repo || !key) return;
+    const ids = idsKey ? idsKey.split(',') : [];
+    const unsubs = ids.map((id) =>
+      repo.subscribeEntries(id, since, (entries) =>
+        setState((prev) => ({
+          key,
+          byLedger: { ...(prev.key === key ? prev.byLedger : {}), [id]: entries },
+        })),
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [repo, key, idsKey, since]);
+  return useMemo(
+    () => (state.key === key ? Object.values(state.byLedger).flat() : EMPTY_ENTRIES),
+    [state, key],
+  );
 }

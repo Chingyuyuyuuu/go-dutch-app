@@ -48,6 +48,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-localization',
     'expo-font',
+    // Development / store builds: notification icon colour and the photo permission text.
+    // Marigold accent, oklch(0.66 0.15 68).
+    ['expo-notifications', { color: '#cd7d00' }],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Go Dutch uses a photo you choose as your home screen background.',
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
   ],
   extra: {
     eas: { projectId: EAS_PROJECT_ID },

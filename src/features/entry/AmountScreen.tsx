@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAppData, useRepo } from '@/data/AppDataProvider';
@@ -29,7 +29,21 @@ export function AmountScreen() {
   const repo = useRepo();
   const { ledgers, profile } = useAppData();
   const draft = useEntryDraft();
-  const [overlay, setOverlay] = useState<'currency' | 'noLedger' | null>(null);
+  const { type: linkType } = useLocalSearchParams<{ type?: string }>();
+  // Opened from a widget (godutch://add?type=income): a fresh entry with that type highlighted.
+  const starredCurrency = profile.starredCurrencies[0] ?? 'AUD';
+  const lastUsed = profile.lastUsedLedger[starredCurrency] ?? null;
+  useEffect(() => {
+    if (linkType !== 'expense' && linkType !== 'income' && linkType !== 'split') return;
+    useEntryDraft.getState().start({
+      currency: starredCurrency,
+      fixedLedgerId: lastUsed,
+      sourceSharedLedgerId: null,
+      presetType: linkType,
+    });
+    router.setParams({ type: undefined });
+  }, [linkType, starredCurrency, lastUsed]);
+  const [overlay, setOverlay] = useState<'currency' | 'noLedger' | 'noShared' | null>(null);
 
   const { symbol, minorUnits } = getCurrency(draft.currency);
   const minor = inputToMinor(draft.input, minorUnits);
@@ -48,7 +62,7 @@ export function AmountScreen() {
 
   const chooseType = (kind: EntryKind) => {
     if (!minor) return toast(t('entry.enterAmountFirst'));
-    if (kind === 'split') return toast(t('entry.splitLater'));
+    if (kind === 'split') return chooseSplitLedger();
     draft.set({ type: kind });
     const route = routePersonalEntry({
       currency: draft.currency,
@@ -63,6 +77,17 @@ export function AmountScreen() {
     }
     draft.set({ ledgerId: route.defaultId });
     router.push({ pathname: '/add/category', params: { choose: '1' } });
+  };
+
+  // Split: the tab's shared ledger, else the only one in this currency, else let the split screen ask.
+  const chooseSplitLedger = () => {
+    const shared = ledgers.filter(
+      (l) => l.kind === 'shared' && l.status === 'active' && l.currency === draft.currency,
+    );
+    if (shared.length === 0) return setOverlay('noShared');
+    const fromTab = shared.find((l) => l.id === draft.sourceSharedLedgerId);
+    draft.set({ sharedLedgerId: (fromTab ?? shared[0]).id });
+    router.push('/add/split');
   };
 
   const types: { kind: EntryKind; label: string; icon: IconName }[] = [
@@ -140,10 +165,12 @@ export function AmountScreen() {
         {types.map(({ kind, label, icon }) => {
           const split = kind === 'split';
           const fg = split ? colors.accent2Ramp[900] : colors.text;
+          const preset = draft.presetType === kind;
           return (
             <Pressable
               key={kind}
               accessibilityRole="button"
+              aria-selected={preset}
               onPress={() => chooseType(kind)}
               style={({ pressed }) => ({
                 flex: 1,
@@ -152,6 +179,8 @@ export function AmountScreen() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
+                borderWidth: 2,
+                borderColor: preset ? colors.accent : 'transparent',
                 backgroundColor: split
                   ? pressed
                     ? colors.accent2Ramp[300]
@@ -192,7 +221,7 @@ export function AmountScreen() {
           }}
         />
       )}
-      {overlay === 'noLedger' && (
+      {(overlay === 'noLedger' || overlay === 'noShared') && (
         <Dialog onClose={() => setOverlay(null)}>
           <View
             style={{
@@ -207,10 +236,12 @@ export function AmountScreen() {
             <Icon name="book-plus" size={24} color={colors.accentRamp[800]} />
           </View>
           <Txt font="heading" size={24} lineHeight={28}>
-            {t('route.noneTitle', { cur: draft.currency })}
+            {overlay === 'noShared'
+              ? t('split.noShared', { cur: draft.currency })
+              : t('route.noneTitle', { cur: draft.currency })}
           </Txt>
           <Txt size={14} color={colors.neutral[800]}>
-            {t('route.noneBody')}
+            {overlay === 'noShared' ? t('split.noSharedBody') : t('route.noneBody')}
           </Txt>
           <View
             style={{
@@ -223,12 +254,17 @@ export function AmountScreen() {
           >
             <PillButton label={t('route.notNow')} variant="outline" onPress={() => setOverlay(null)} />
             <PillButton
-              label={t('route.create', { cur: draft.currency })}
+              label={
+                overlay === 'noShared' ? t('split.createShared') : t('route.create', { cur: draft.currency })
+              }
               onPress={() => {
+                const shared = overlay === 'noShared';
                 setOverlay(null);
                 router.push({
                   pathname: '/ledger/new',
-                  params: { currency: draft.currency, then: 'category' },
+                  params: shared
+                    ? { currency: draft.currency, kind: 'shared', then: 'split' }
+                    : { currency: draft.currency, then: 'category' },
                 });
               }}
             />

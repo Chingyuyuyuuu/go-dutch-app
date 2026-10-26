@@ -9,8 +9,10 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppDataProvider, useAppData } from '@/data/AppDataProvider';
+import { useAcceptPendingInvite } from '@/features/friends/usePendingInvite';
+import { useReminders } from '@/features/notifications/useReminders';
 import { FONT_ASSETS } from '@/ui/theme/fonts';
-import { ThemeProvider, useColors } from '@/ui/theme/ThemeProvider';
+import { ThemeProvider, useApplyTheme, useColors } from '@/ui/theme/ThemeProvider';
 import { ToastProvider } from '@/ui/Toast';
 import { WebFrame } from '@/ui/WebFrame';
 
@@ -44,7 +46,10 @@ export default function RootLayout() {
 
 function RootStack() {
   const colors = useColors();
-  const { session } = useAppData();
+  const { session, profile } = useAppData();
+  useApplyTheme(profile.bgTheme, profile.accentTheme);
+  useAcceptPendingInvite();
+  useReminders();
   if (session.status === 'loading') return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   const signedIn = session.status === 'ready';
 
@@ -54,14 +59,25 @@ function RootStack() {
         <Stack.Screen name="index" />
         <Stack.Screen name="add/index" />
         <Stack.Screen name="add/category" />
+        <Stack.Screen name="add/split" />
         <Stack.Screen name="ledger/new" />
+        <Stack.Screen name="ledger/[id]" />
+        <Stack.Screen name="friends" />
         <Stack.Screen name="entry/[ledgerId]/[entryId]" />
         <Stack.Screen name="reorder" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="recurring/index" />
+        <Stack.Screen name="recurring/[id]" />
+        <Stack.Screen name="banks" />
+        <Stack.Screen name="monthly" />
+        <Stack.Screen name="appearance" />
+        <Stack.Screen name="widgets" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="sign-in" />
       </Stack.Protected>
+      {/* Invite links work signed in or out. */}
+      <Stack.Screen name="invite/[code]" />
     </Stack>
   );
 }

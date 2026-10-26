@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,16 @@ export function useScreenInsets() {
   };
 }
 
+const ScreenOverlayContext = createContext<(overlay: ReactNode) => void>(() => {});
+
+/**
+ * Lets a part of a screen (e.g. the ledger body between the tabs and the
+ * bottom button) show a sheet or dialog over the whole screen. Pass null to close.
+ */
+export function useScreenOverlay() {
+  return useContext(ScreenOverlayContext);
+}
+
 export function Screen({
   children,
   style,
@@ -27,20 +37,24 @@ export function Screen({
 }) {
   const colors = useColors();
   const { top, bottom } = useScreenInsets();
+  const [overlay, setOverlay] = useState<ReactNode>(null);
   return (
-    <View
-      style={[
-        {
-          flex: 1,
-          paddingTop: top,
-          paddingBottom: bottom,
-          backgroundColor: transparent ? 'transparent' : colors.bg,
-        },
-        style,
-      ]}
-    >
-      {children}
-    </View>
+    <ScreenOverlayContext.Provider value={setOverlay}>
+      <View
+        style={[
+          {
+            flex: 1,
+            paddingTop: top,
+            paddingBottom: bottom,
+            backgroundColor: transparent ? 'transparent' : colors.bg,
+          },
+          style,
+        ]}
+      >
+        {children}
+        {overlay}
+      </View>
+    </ScreenOverlayContext.Provider>
   );
 }
 

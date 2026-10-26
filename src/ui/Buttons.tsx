@@ -50,7 +50,7 @@ export function PillButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -152,7 +152,7 @@ export function StarToggle({
   return (
     <Pressable
       accessibilityRole="switch"
-      accessibilityState={{ checked: on }}
+      aria-checked={on}
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}

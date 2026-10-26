@@ -32,6 +32,11 @@ export interface AuthService {
   signInWithGoogle(): Promise<void>;
   signInWithApple(): Promise<void>;
   signOut(): Promise<void>;
+  /**
+   * Deletes the account on the server (public.delete_my_account) and the home photo,
+   * then signs out. 'offline' when the server can't be reached.
+   */
+  deleteAccount(homePhotoPath: string | null): Promise<'ok' | 'offline'>;
 }
 
 /** Maps Supabase Auth error codes to reasons the UI can translate. */

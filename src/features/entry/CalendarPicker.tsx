@@ -15,20 +15,26 @@ export function CalendarPicker({
   value,
   today,
   onChange,
+  maxDate = today,
+  quickDays,
 }: {
   value: LocalDate;
   today: LocalDate;
   onChange: (date: LocalDate) => void;
+  /** Last day that can be picked (entries: today; a first charge can be later). */
+  maxDate?: LocalDate;
+  /** Quick chips; Today / Yesterday by default. */
+  quickDays?: [LocalDate, string][];
 }) {
   const colors = useColors();
   const { t, lang } = useI18n();
   const initial = parseLocalDate(value);
   const [view, setView] = useState({ year: initial.year, month: initial.month });
-  const todayParts = parseLocalDate(today);
-  const atCurrentMonth = view.year === todayParts.year && view.month === todayParts.month;
+  const maxParts = parseLocalDate(maxDate);
+  const atLastMonth = view.year === maxParts.year && view.month === maxParts.month;
   const weekHead =
     lang === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const quick: [LocalDate, string][] = [
+  const quick: [LocalDate, string][] = quickDays ?? [
     [today, t('common.today')],
     [addDays(today, -1), t('common.yesterday')],
   ];
@@ -51,7 +57,7 @@ export function CalendarPicker({
             <Pressable
               key={label}
               accessibilityRole="button"
-              accessibilityState={{ selected: on }}
+              aria-selected={on}
               onPress={() => onChange(date)}
               style={{
                 height: 36,
@@ -81,7 +87,7 @@ export function CalendarPicker({
         <Txt font="heading" size={16} style={{ flex: 1 }} align="center" accessibilityRole="header">
           {monthLabel(view.year, view.month, lang)}
         </Txt>
-        <View style={{ opacity: atCurrentMonth ? 0.3 : 1 }} pointerEvents={atCurrentMonth ? 'none' : 'auto'}>
+        <View style={{ opacity: atLastMonth ? 0.3 : 1 }} pointerEvents={atLastMonth ? 'none' : 'auto'}>
           <IconButton
             icon="chevron-right"
             size={36}
@@ -107,14 +113,15 @@ export function CalendarPicker({
         ))}
         {monthGrid(view.year, view.month).map((date, i) => {
           if (!date) return <View key={`blank-${i}`} style={{ width: '14.2857%', height: 36 }} />;
-          const future = date > today;
+          const future = date > maxDate;
           const selected = date === value;
           const isToday = date === today;
           return (
             <View key={date} style={{ width: '14.2857%', alignItems: 'center' }}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{ selected, disabled: future }}
+                aria-selected={selected}
+                aria-disabled={future}
                 accessibilityLabel={date}
                 disabled={future}
                 onPress={() => onChange(date)}

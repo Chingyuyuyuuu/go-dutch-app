@@ -1,10 +1,15 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { CurrencyPicker } from '@/features/entry/CurrencyPicker';
+import {
+  ensureNotificationPermission,
+  getNotificationStatus,
+  type NotificationStatus,
+} from '@/features/notifications/permission';
 import { useI18n } from '@/i18n';
 import type { LocalePref } from '@/lib/domain';
 import { formatDate, todayLocal } from '@/lib/date';
@@ -12,20 +17,42 @@ import { PillButton, RadioDot, SectionLabel } from '@/ui/Buttons';
 import { Icon, type IconName } from '@/ui/Icon';
 import { Dialog } from '@/ui/Overlay';
 import { Screen, ScreenHeader } from '@/ui/Screen';
+import { fonts } from '@/ui/theme/fonts';
 import { useColors, useTheme } from '@/ui/theme/ThemeProvider';
 import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 
-/** Screen 14. Rows for later phases say so when tapped. */
+/** Screen 14. */
 export function SettingsScreen() {
   const colors = useColors();
   const { background, accent } = useTheme();
   const { t, lang } = useI18n();
   const toast = useToast();
   const repo = useRepo();
-  const { profile, user, signOut, resetDemo, pending } = useAppData();
-  const [overlay, setOverlay] = useState<'currencies' | 'signOut' | null>(null);
+  const { profile, user, signOut, resetDemo, pending, deleteAccount } = useAppData();
+  const [overlay, setOverlay] = useState<'currencies' | 'signOut' | 'name' | 'delete' | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [name, setName] = useState(profile.displayName);
   const isDemo = repo.kind === 'demo';
+  const [notifStatus, setNotifStatus] = useState<NotificationStatus>('undetermined');
+  useEffect(() => {
+    void getNotificationStatus().then(setNotifStatus);
+  }, []);
+  const notifValue =
+    notifStatus === 'unsupported'
+      ? t('settings.notificationsWeb')
+      : notifStatus === 'granted'
+        ? t('settings.notificationsOn')
+        : t('settings.notificationsOff');
+  const onNotifications = async () => {
+    if (notifStatus === 'unsupported') return toast(t('settings.notificationsSub'));
+    if (await ensureNotificationPermission()) {
+      setNotifStatus('granted');
+      return toast(t('settings.notificationsEnabled'));
+    }
+    toast(t('settings.notificationsDenied'));
+    void Linking.openSettings();
+  };
 
   const languages: { value: LocalePref; label: string; sub?: string }[] = [
     { value: 'system', label: t('settings.matchPhone'), sub: t('settings.currently') },
@@ -33,13 +60,21 @@ export function SettingsScreen() {
     { value: 'en-AU', label: 'English (Australia)' },
   ];
 
-  const later = () => toast(t('common.comingSoon'));
   const rows: { icon: IconName; label: string; value?: string; onPress: () => void }[] = [
+    {
+      icon: 'tag',
+      label: t('settings.name'),
+      value: profile.displayName,
+      onPress: () => {
+        setName(profile.displayName);
+        setOverlay('name');
+      },
+    },
     {
       icon: 'palette',
       label: t('settings.appearance'),
       value: `${t(`theme.${background}`)} · ${t(`theme.${accent}`)}`,
-      onPress: later,
+      onPress: () => router.push('/appearance'),
     },
     {
       icon: 'star',
@@ -47,13 +82,13 @@ export function SettingsScreen() {
       value: profile.starredCurrencies.join(', '),
       onPress: () => setOverlay('currencies'),
     },
-    { icon: 'users', label: t('settings.friends'), onPress: later },
-    { icon: 'layout-grid', label: t('settings.widgets'), onPress: later },
+    { icon: 'users', label: t('settings.friends'), onPress: () => router.push('/friends') },
+    { icon: 'layout-grid', label: t('settings.widgets'), onPress: () => router.push('/widgets') },
     {
       icon: 'bell',
       label: t('settings.notifications'),
-      value: t('settings.notificationsSub'),
-      onPress: later,
+      value: notifValue,
+      onPress: () => void onNotifications(),
     },
     {
       icon: 'circle-user',
@@ -76,7 +111,7 @@ export function SettingsScreen() {
                 <Pressable
                   key={o.value}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: on }}
+                  aria-checked={on}
                   onPress={() => repo.updateProfile({ locale: o.value })}
                   style={{
                     minHeight: 56,
@@ -205,6 +240,44 @@ export function SettingsScreen() {
           onClose={() => setOverlay(null)}
         />
       )}
+      {overlay === 'name' && (
+        <Dialog onClose={() => setOverlay(null)}>
+          <Txt font="heading" size={22}>
+            {t('settings.name')}
+          </Txt>
+          <Txt size={14} color={colors.neutral[800]}>
+            {t('settings.nameHint')}
+          </Txt>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            accessibilityLabel={t('settings.name')}
+            autoFocus
+            maxLength={40}
+            style={{
+              height: 52,
+              paddingHorizontal: 18,
+              borderRadius: 999,
+              backgroundColor: colors.bg,
+              fontFamily: fonts.body,
+              fontSize: 16,
+              color: colors.text,
+            }}
+          />
+          <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+            <PillButton label={t('common.cancel')} variant="outline" onPress={() => setOverlay(null)} />
+            <PillButton
+              label={t('common.save')}
+              disabled={!name.trim()}
+              onPress={() => {
+                repo.updateProfile({ displayName: name.trim() });
+                toast(t('settings.nameSaved'));
+                setOverlay(null);
+              }}
+            />
+          </View>
+        </Dialog>
+      )}
       {overlay === 'signOut' && (
         <Dialog onClose={() => setOverlay(null)}>
           <Txt font="heading" size={24}>
@@ -223,6 +296,40 @@ export function SettingsScreen() {
                 void signOut();
               }}
             />
+          </View>
+          {!isDemo && (
+            <PillButton
+              label={t('settings.deleteAccount')}
+              variant="ghost"
+              icon="user-x"
+              fontSize={14}
+              onPress={() => setOverlay('delete')}
+            />
+          )}
+        </Dialog>
+      )}
+      {overlay === 'delete' && (
+        <Dialog onClose={() => !deleting && setOverlay(null)}>
+          <Txt font="heading" size={24}>
+            {t('settings.deleteTitle')}
+          </Txt>
+          <Txt size={14} lineHeight={20} color={colors.neutral[800]}>
+            {t('settings.deleteBody', { name: profile.displayName })}
+          </Txt>
+          <View style={{ gap: 8, marginTop: 6 }}>
+            <PillButton
+              label={t('settings.deleteConfirm')}
+              variant="danger"
+              disabled={deleting}
+              onPress={async () => {
+                setDeleting(true);
+                const result = await deleteAccount();
+                setDeleting(false);
+                if (result === 'offline') return toast(t('settings.deleteOffline'));
+                toast(t('settings.deleted'));
+              }}
+            />
+            <PillButton label={t('common.cancel')} variant="outline" onPress={() => setOverlay(null)} />
           </View>
         </Dialog>
       )}

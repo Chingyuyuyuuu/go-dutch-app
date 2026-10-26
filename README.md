@@ -51,7 +51,11 @@ npx expo start       # 手機：用 Expo Go 掃終端機上的 QR code
 ## 設定 Supabase
 
 1. 到 [supabase.com](https://supabase.com) 建立專案。使用者在澳洲，區域選 **Sydney（ap-southeast-2）**。
-2. 建立資料表：Dashboard → **SQL Editor** → 貼上 `supabase/migrations/20261026000000_init.sql` 全部內容 → Run。
+2. 建立資料表：Dashboard → **SQL Editor**，**依檔名順序**各貼一次、各按一次 Run：
+   1. `supabase/migrations/20261026000000_init.sql`（個人帳本）
+   2. `supabase/migrations/20261027000000_shared_ledgers.sql`（好友、邀請、分帳帳本）
+   3. `supabase/migrations/20261028000000_recurring_banks.sql`（定期扣款、銀行帳戶；有提示時到 Integrations → Cron 開啟排程）
+   4. `supabase/migrations/20261029000000_appearance_account.sql`（外觀設定、首頁照片、刪除帳號）
 3. 專案首頁上方的 **Connect**（或 **Project Settings → API Keys**）：把 Project URL 和 publishable key（`sb_publishable_…`）填進 `.env.local`（照 `.env.example`）。
 4. Dashboard → **Authentication → Sign In / Providers → Email**：開發期間可以先關掉「Confirm email」，註冊後就能直接登入。
 5. 之後要用 Google／Apple 登入時：在 Providers 開啟並填 OAuth 資料；在 **Authentication → URL Configuration** 加入
@@ -83,13 +87,14 @@ npm run deploy:web:prod   # 正式網址：https://<子網域>.expo.app（固定
 | Variable | `EXPO_PUBLIC_SUPABASE_URL` | 選填。不填的話網站是試用模式 |
 | Variable | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 選填。publishable key 本來就是公開的，放 Variable 即可 |
 | Variable | `EAS_DEV_DOMAIN` | 選填。只有「還沒部署過」時用來指定子網域，例如 `godutch` |
+| Variable | `EXPO_PUBLIC_WEB_URL` | 選填。網站網址，例如 `https://godutch.expo.app`；手機分享的邀請連結會用它 |
 
 ## 資料夾結構
 
 ```
 src/
   app/          Expo Router 路由（每個檔案是一個畫面，只做轉出）
-  features/     各功能的畫面與邏輯：home、entry、ledgers、settings、auth
+  features/     各功能的畫面與邏輯：home、entry、ledgers、friends、shared、settings、auth
   data/
     local/      手機上的資料（LocalStore）、待上傳佇列（ops）、LocalRepo
     sync/       同步引擎（上傳佇列、下載變更、重試）

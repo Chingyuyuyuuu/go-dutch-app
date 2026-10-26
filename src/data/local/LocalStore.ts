@@ -1,4 +1,15 @@
-import { DEFAULT_PROFILE, type Entry, type Ledger, type LedgerPref, type UserProfile } from '@/lib/domain';
+import {
+  DEFAULT_PROFILE,
+  type BankAccount,
+  type Entry,
+  type Friend,
+  type Invite,
+  type Ledger,
+  type LedgerPref,
+  type PlaceholderFriend,
+  type Recurring,
+  type UserProfile,
+} from '@/lib/domain';
 
 import type { KeyValueStore } from './kv';
 import type { QueuedOp } from './ops';
@@ -9,6 +20,14 @@ export type LocalState = {
   prefs: Record<string, LedgerPref>;
   /** Live (not deleted) entries per ledger. */
   entries: Record<string, Entry[]>;
+  friends: Friend[];
+  placeholders: PlaceholderFriend[];
+  invites: Invite[];
+  /** My recurring payments, plus recurring splits of shared ledgers I'm in (for their tags). */
+  recurring: Recurring[];
+  banks: BankAccount[];
+  /** This device only: when each ledger was last opened, for "new" markers. Never synced. */
+  seen: Record<string, number>;
 };
 
 export type SyncMeta = {
@@ -16,7 +35,18 @@ export type SyncMeta = {
   cursor: string | null;
 };
 
-export const EMPTY_STATE: LocalState = { profile: DEFAULT_PROFILE, ledgers: [], prefs: {}, entries: {} };
+export const EMPTY_STATE: LocalState = {
+  profile: DEFAULT_PROFILE,
+  ledgers: [],
+  prefs: {},
+  entries: {},
+  friends: [],
+  placeholders: [],
+  invites: [],
+  recurring: [],
+  banks: [],
+  seen: {},
+};
 
 type Meta = Omit<LocalState, 'entries'> & { ledgerIds: string[]; sync: SyncMeta };
 
@@ -29,7 +59,7 @@ function logPersistError(error: unknown) {
 /**
  * This device's copy of one user's data. Screens read from here, so the app
  * works the same online and offline. Saved under `<namespace>/…` keys:
- * `meta` (profile, ledgers, prefs, sync cursor), `entries/<ledgerId>` and `outbox`.
+ * `meta` (everything except entries, plus the sync cursor), `entries/<ledgerId>` and `outbox`.
  */
 export class LocalStore {
   private listeners = new Set<() => void>();
@@ -60,7 +90,12 @@ export class LocalStore {
     return new LocalStore(
       kv,
       ns,
-      { profile: { ...DEFAULT_PROFILE, ...meta.profile }, ledgers: meta.ledgers, prefs: meta.prefs, entries },
+      {
+        ...EMPTY_STATE,
+        ...meta,
+        profile: { ...DEFAULT_PROFILE, ...meta.profile },
+        entries,
+      },
       rawOutbox ? (JSON.parse(rawOutbox) as QueuedOp[]) : [],
       meta.sync ?? { cursor: null },
     );
@@ -153,8 +188,8 @@ export class LocalStore {
     const writes: Promise<void>[] = [];
     if (this.dirtyMeta) {
       this.dirtyMeta = false;
-      const { profile, ledgers, prefs, entries } = this._state;
-      const meta: Meta = { profile, ledgers, prefs, ledgerIds: Object.keys(entries), sync: this._sync };
+      const { entries, ...rest } = this._state;
+      const meta: Meta = { ...rest, ledgerIds: Object.keys(entries), sync: this._sync };
       writes.push(this.kv.setItem(`${this.ns}/meta`, JSON.stringify(meta)));
     }
     for (const id of this.dirtyLedgers) {

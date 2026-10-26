@@ -1,4 +1,14 @@
-import type { Entry, Ledger, LedgerPref, UserProfile } from '@/lib/domain';
+import type {
+  BankAccount,
+  Entry,
+  Friend,
+  Invite,
+  Ledger,
+  LedgerPref,
+  PlaceholderFriend,
+  Recurring,
+  UserProfile,
+} from '@/lib/domain';
 
 import type { LocalStore } from '../local/LocalStore';
 import { enqueueOp, opRowKey, type Op } from '../local/ops';
@@ -11,15 +21,31 @@ export type PullResult = {
   profile: UserProfile | null;
   ledgers: Ledger[];
   prefs: Record<string, LedgerPref>;
-  /** Entries changed since the cursor, including deletions. */
+  /** Entries changed since the cursor (all entries of ledgers new to this device), including deletions. */
   entries: PulledEntry[];
+  friends: Friend[];
+  placeholders: PlaceholderFriend[];
+  invites: Invite[];
+  /** All live rows (these tables are small, so they are read whole). */
+  recurring: Recurring[];
+  banks: BankAccount[];
   cursor: string;
 };
+
+export type AcceptInviteResult = 'ok' | 'invalid' | 'self' | 'used' | 'offline';
 
 /** The server side of sync. SupabaseRemote in the app, a fake in tests. */
 export interface RemoteApi {
   push(op: Op): Promise<PushResult>;
-  pull(cursor: string | null): Promise<PullResult>;
+  /**
+   * Everything that changed since `cursor` (null = everything). Ledgers not in
+   * `knownLedgerIds` are new to this device, so all their entries are included.
+   */
+  pull(cursor: string | null, knownLedgerIds: string[]): Promise<PullResult>;
+  /** Needs the network; not queued. */
+  acceptInvite(code: string): Promise<AcceptInviteResult>;
+  /** Asks the server to record my recurring charges that are due (it also does this hourly). */
+  runRecurring(): Promise<void>;
   /** Calls `onChange` when another device changes data. Returns unsubscribe. */
   subscribe(onChange: () => void): () => void;
 }
@@ -91,9 +117,26 @@ export class SyncEngine {
     void this.flush();
   }
 
-  /** Send pending writes, then fetch what changed. */
+  /** Joins a friend through their invite code, then downloads what that unlocked. */
+  async acceptInvite(code: string): Promise<AcceptInviteResult> {
+    let result: AcceptInviteResult;
+    try {
+      result = await this.remote.acceptInvite(code);
+    } catch {
+      result = 'offline';
+    }
+    if (result === 'ok') await this.pull();
+    return result;
+  }
+
+  /** Send pending writes, let the server record due recurring charges, then fetch what changed. */
   async syncNow() {
     await this.flush();
+    try {
+      await this.remote.runRecurring();
+    } catch {
+      // Offline, or the server is older than this app: the hourly job still records them.
+    }
     await this.pull();
   }
 
@@ -150,7 +193,8 @@ export class SyncEngine {
     this.needFullPull = false;
     let result: PullResult;
     try {
-      result = await this.remote.pull(full ? null : this.store.sync.cursor);
+      const known = full ? [] : Object.keys(this.store.state.entries);
+      result = await this.remote.pull(full ? null : this.store.sync.cursor, known);
     } catch {
       if (full) this.needFullPull = true;
       // Offline or server error: keep showing the local copy.
@@ -202,7 +246,10 @@ export function mergePull(
   const localLedgerById = new Map(local.ledgers.map((l) => [l.id, l]));
   const serverIds = new Set(pulled.ledgers.map((l) => l.id));
   const ledgers = [
-    ...pulled.ledgers.map((l) => (pending.has(`ledger:${l.id}`) ? (localLedgerById.get(l.id) ?? l) : l)),
+    // A pending change wins; a pending removal (not in the local copy any more) stays removed.
+    ...pulled.ledgers.flatMap((l) =>
+      pending.has(`ledger:${l.id}`) ? (localLedgerById.get(l.id) ?? []) : [l],
+    ),
     // Created here but not on the server yet.
     ...local.ledgers.filter((l) => !serverIds.has(l.id) && pending.has(`ledger:${l.id}`)),
   ];
@@ -230,5 +277,31 @@ export function mergePull(
   }
 
   const profile = pending.has('profile') || !pulled.profile ? local.profile : pulled.profile;
-  return { profile, ledgers, prefs, entries };
+  return {
+    profile,
+    ledgers,
+    prefs,
+    entries,
+    friends: mergeRows(local.friends, pulled.friends, (f) => `friend:${f.uid}`, pending),
+    placeholders: mergeRows(local.placeholders, pulled.placeholders, (p) => `placeholder:${p.id}`, pending),
+    invites: mergeRows(local.invites, pulled.invites, (i) => `invite:${i.code}`, pending),
+    recurring: mergeRows(local.recurring, pulled.recurring, (r) => `recurring:${r.id}`, pending).filter((r) =>
+      keep.has(r.ledgerId),
+    ),
+    banks: mergeRows(local.banks, pulled.banks, (b) => `bank:${b.id}`, pending),
+    seen: local.seen,
+  };
+}
+
+/**
+ * Server rows, except rows with unsent local changes, which keep (or add) the local
+ * version; a row deleted here but not on the server yet stays deleted.
+ */
+function mergeRows<T>(local: T[], server: T[], key: (row: T) => string, pending: Set<string>): T[] {
+  const localByKey = new Map(local.map((row) => [key(row), row]));
+  const serverKeys = new Set(server.map(key));
+  return [
+    ...server.flatMap((row) => (pending.has(key(row)) ? (localByKey.get(key(row)) ?? []) : [row])),
+    ...local.filter((row) => !serverKeys.has(key(row)) && pending.has(key(row))),
+  ];
 }

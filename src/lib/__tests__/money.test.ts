@@ -7,6 +7,7 @@ import {
   inputToMinor,
   minorToInput,
   pressKey,
+  sanitizeAmountText,
   type KeypadKey,
 } from '../money';
 
@@ -99,5 +100,24 @@ describe('fitInputToDecimals', () => {
     expect(fitInputToDecimals('42.50', 0)).toBe('42');
     expect(fitInputToDecimals('42.505', 2)).toBe('42.50');
     expect(fitInputToDecimals('42', 0)).toBe('42');
+  });
+});
+
+describe('sanitizeAmountText', () => {
+  it('keeps digits and one point, capped to the currency decimals', () => {
+    expect(sanitizeAmountText('12.345', 2)).toBe('12.34');
+    expect(sanitizeAmountText('1,234.5', 2)).toBe('1234.5');
+    expect(sanitizeAmountText('1.2.3', 2)).toBe('1.23');
+    expect(sanitizeAmountText('.5', 2)).toBe('0.5');
+    expect(sanitizeAmountText('007', 2)).toBe('7');
+    expect(sanitizeAmountText('abc', 2)).toBe('');
+  });
+
+  it('drops the decimals for zero-decimal currencies', () => {
+    expect(sanitizeAmountText('1500.5', 0)).toBe('1500');
+  });
+
+  it('caps the integer part', () => {
+    expect(sanitizeAmountText('12345678901', 2)).toBe('123456789');
   });
 });

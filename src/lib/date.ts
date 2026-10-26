@@ -60,6 +60,25 @@ export function addDays(date: LocalDate, days: number): LocalDate {
   return dateFromJs(d);
 }
 
+/**
+ * Same day `months` later. A day that does not exist in the target month
+ * becomes its last day (31 Jan + 1 month = 28 Feb), like PostgreSQL's date + interval.
+ */
+export function addMonths(date: LocalDate, months: number): LocalDate {
+  const { year, month, day } = parseLocalDate(date);
+  const target = shiftMonth(year, month, months);
+  return toLocalDate(target.year, target.month, Math.min(day, daysInMonth(target.year, target.month)));
+}
+
+/** Whole days from `from` to `to` (negative when `to` is earlier). */
+export function daysBetween(from: LocalDate, to: LocalDate): number {
+  const a = parseLocalDate(from);
+  const b = parseLocalDate(to);
+  return Math.round(
+    (Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86_400_000,
+  );
+}
+
 export function weekday(date: LocalDate): number {
   return toJs(date).getDay();
 }
@@ -97,6 +116,19 @@ export function dayLabel(date: LocalDate, today: LocalDate, lang: UiLang): strin
   return lang === 'zh'
     ? `${formatDate(date, 'zh')}（${WEEKDAY_ZH[w]}）`
     : `${WEEKDAY_EN[w]} ${formatDate(date, 'en')}`;
+}
+
+/** "October" / "10 月"; short: "Oct" / "10 月". */
+export function monthName(month: number, lang: UiLang, short = false): string {
+  if (lang === 'zh') return `${month} 月`;
+  const name = MONTH_EN[month - 1];
+  return short ? name.slice(0, 3) : name;
+}
+
+/** "25/10" / "10/25", for short "next 25/10" hints. */
+export function formatDayMonth(date: LocalDate, lang: UiLang): string {
+  const { month, day } = parseLocalDate(date);
+  return lang === 'zh' ? `${pad2(month)}/${pad2(day)}` : `${pad2(day)}/${pad2(month)}`;
 }
 
 /** "October 2026" / "2026 年 10 月". */

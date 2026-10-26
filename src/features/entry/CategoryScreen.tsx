@@ -107,7 +107,7 @@ export function CategoryScreen() {
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled: candidates.length < 2 }}
+          aria-disabled={candidates.length < 2}
           disabled={candidates.length < 2}
           onPress={() => setOverlay('route')}
           style={({ pressed }) => ({
@@ -203,7 +203,7 @@ export function CategoryScreen() {
               <Pressable
                 key={id}
                 accessibilityRole="button"
-                accessibilityState={{ selected }}
+                aria-selected={selected}
                 onPress={() => {
                   draft.set({ ledgerId: id });
                   setOverlay(null);

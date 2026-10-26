@@ -3,11 +3,19 @@ import { useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { useAppData, useRepo } from '@/data/AppDataProvider';
+import { draftFromEntry, draftShares, SplitForm, type SplitDraft } from '@/features/shared/SplitForm';
 import { useI18n } from '@/i18n';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type CategoryCode } from '@/lib/categories';
 import { getCurrency } from '@/lib/currency';
 import { dayLabel, todayLocal } from '@/lib/date';
-import { formatInput, formatMinorNumber, inputToMinor, minorToInput, pressKey } from '@/lib/money';
+import {
+  formatInput,
+  formatMinorNumber,
+  formatMoney,
+  inputToMinor,
+  minorToInput,
+  pressKey,
+} from '@/lib/money';
 import { PillButton, SectionLabel } from '@/ui/Buttons';
 import { CategoryCircle } from '@/ui/CategoryCircle';
 import { Icon } from '@/ui/Icon';
@@ -25,7 +33,8 @@ import { useEditingEntry } from './draft';
 
 /**
  * Edit or delete one entry (tapped from the home list). Not in the design
- * handoff; built from the same parts as screens 03 and 05b.
+ * handoff; built from the same parts as screens 03, 05b and 08. Split entries
+ * also edit who paid and the shares; repayments only the amount, note and date.
  */
 export function EditEntryScreen() {
   const colors = useColors();
@@ -44,18 +53,38 @@ export function EditEntryScreen() {
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [split, setSplit] = useState<SplitDraft | null>(() =>
+    entry && ledger && entry.isSplit ? draftFromEntry(ledger, entry) : null,
+  );
   const today = todayLocal();
 
   if (!entry || !ledger || !categoryCode) return <Redirect href="/" />;
 
   const { symbol } = getCurrency(ledger.currency);
   const minor = inputToMinor(input, decimals);
-  const isIncome = entry.type === 'income';
+  const isIncome = split ? split.kind === 'income' : entry.type === 'income';
   const codes: readonly CategoryCode[] = isIncome ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  const repayment = entry.type === 'repayment';
 
   const save = () => {
     if (!minor) return toast(t('entry.enterAmountFirst'));
-    repo.updateEntry(ledger.id, entry.id, { amountMinor: minor, categoryCode, note: note.trim(), date });
+    const base = { amountMinor: minor, categoryCode, note: note.trim(), date };
+    if (split) {
+      const allocation = draftShares(split, minor, decimals);
+      if (!allocation.ok) return toast(t('split.overTotal', { amount: formatMoney(ledger.currency, minor) }));
+      repo.updateEntry(ledger.id, entry.id, {
+        ...base,
+        type: split.kind,
+        payerMemberId: split.payerId,
+        shares: allocation.shares,
+      });
+    } else if (repayment) {
+      const to = Object.keys(entry.shares ?? {})[0];
+      repo.updateEntry(ledger.id, entry.id, { ...base, shares: to ? { [to]: minor } : entry.shares });
+    } else {
+      repo.updateEntry(ledger.id, entry.id, base);
+    }
     toast(t('entry.updated'));
     router.back();
   };
@@ -110,35 +139,41 @@ export function EditEntryScreen() {
           />
         )}
 
-        <View style={{ gap: 8 }}>
-          <SectionLabel>{t('entry.category')}</SectionLabel>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-            {codes.map((code) => {
-              const on = code === categoryCode;
-              return (
-                <Pressable
-                  key={code}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={t(`category.${code}`)}
-                  onPress={() => setCategoryCode(code)}
-                  style={{ width: 62, alignItems: 'center', gap: 5 }}
-                >
-                  <CategoryCircle
-                    code={code}
-                    size={50}
-                    iconSize={21}
-                    background={on ? colors.accent : colors.surface}
-                    color={on ? colors.bg : isIncome ? colors.accent2Ramp[800] : colors.accentRamp[800]}
-                  />
-                  <Txt size={12} align="center" numberOfLines={2}>
-                    {t(`category.${code}`)}
-                  </Txt>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
+        {split && (
+          <SplitForm ledger={ledger} myUid={repo.uid} total={minor} draft={split} onChange={setSplit} />
+        )}
+
+        {!repayment && (
+          <View style={{ gap: 8 }}>
+            <SectionLabel>{t('entry.category')}</SectionLabel>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+              {codes.map((code) => {
+                const on = code === categoryCode;
+                return (
+                  <Pressable
+                    key={code}
+                    accessibilityRole="button"
+                    aria-selected={on}
+                    accessibilityLabel={t(`category.${code}`)}
+                    onPress={() => setCategoryCode(code)}
+                    style={{ width: 62, alignItems: 'center', gap: 5 }}
+                  >
+                    <CategoryCircle
+                      code={code}
+                      size={50}
+                      iconSize={21}
+                      background={on ? colors.accent : colors.surface}
+                      color={on ? colors.bg : isIncome ? colors.accent2Ramp[800] : colors.accentRamp[800]}
+                    />
+                    <Txt size={12} align="center" numberOfLines={2}>
+                      {t(`category.${code}`)}
+                    </Txt>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         <View
           style={{

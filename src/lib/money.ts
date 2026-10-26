@@ -87,3 +87,29 @@ export function fitInputToDecimals(input: string, decimals: number): string {
   if (decimals === 0) return whole;
   return `${whole}.${fraction.slice(0, decimals)}`;
 }
+
+/**
+ * Cleans text typed into an amount field (system keyboard, e.g. custom shares):
+ * digits and one decimal point only, decimals capped at the currency's minor
+ * units, at most MAX_INTEGER_DIGITS before the point. Commas are ignored.
+ */
+export function sanitizeAmountText(text: string, decimals: number): string {
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  const dot = cleaned.indexOf('.');
+  const whole = (dot < 0 ? cleaned : cleaned.slice(0, dot))
+    .replace(/^0+(?=\d)/, '')
+    .slice(0, MAX_INTEGER_DIGITS);
+  if (dot < 0 || decimals === 0) return whole;
+  const fraction = cleaned
+    .slice(dot + 1)
+    .replace(/\./g, '')
+    .slice(0, decimals);
+  return `${whole || '0'}.${fraction}`;
+}
+
+/** Rounded to whole units, for estimates like "About $1,101 a month". */
+export function formatMoneyWhole(currency: string, minor: MinorUnits): string {
+  const { symbol, minorUnits } = getCurrency(currency);
+  const whole = Math.round(Math.abs(minor) / 10 ** minorUnits);
+  return `${minor < 0 ? MINUS_SIGN : ''}${symbol}${groupThousands(String(whole))}`;
+}

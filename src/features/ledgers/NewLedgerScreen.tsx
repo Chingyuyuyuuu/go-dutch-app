@@ -7,7 +7,8 @@ import { CurrencyPicker } from '@/features/entry/CurrencyPicker';
 import { useEntryDraft, useHomeTab } from '@/features/entry/draft';
 import { useI18n } from '@/i18n';
 import { currencyName, isCurrencyCode } from '@/lib/currency';
-import type { LedgerKind } from '@/lib/domain';
+import type { LedgerKind, ShareHandling } from '@/lib/domain';
+import { MemberPicker, ShareHandlingPicker, usePeople, type PersonKey } from '@/features/shared/MemberPicker';
 import { PillButton } from '@/ui/Buttons';
 import { Icon } from '@/ui/Icon';
 import { Screen, ScreenHeader } from '@/ui/Screen';
@@ -18,8 +19,8 @@ import { Txt } from '@/ui/Txt';
 
 /**
  * Screen 09. `then=category` comes from the "No NZD ledger" dialog, `then=back`
- * from the routing sheet; both continue the entry with the new ledger selected.
- * Shared ledgers arrive in Phase 3.
+ * from the routing sheet, `then=split` from "No shared ledger"; each continues
+ * the entry with the new ledger selected.
  */
 export function NewLedgerScreen() {
   const colors = useColors();
@@ -27,20 +28,32 @@ export function NewLedgerScreen() {
   const toast = useToast();
   const repo = useRepo();
   const { profile } = useAppData();
-  const params = useLocalSearchParams<{ currency?: string; then?: 'category' | 'back' }>();
+  const params = useLocalSearchParams<{
+    currency?: string;
+    kind?: LedgerKind;
+    then?: 'category' | 'back' | 'split';
+  }>();
+  const people = usePeople();
   const presetCurrency = params.currency && isCurrencyCode(params.currency) ? params.currency : undefined;
 
   const [name, setName] = useState('');
-  const [kind, setKind] = useState<LedgerKind>('personal');
+  const [kind, setKind] = useState<LedgerKind>(params.kind === 'shared' ? 'shared' : 'personal');
+  const [selected, setSelected] = useState<PersonKey[]>([]);
+  const [shareHandling, setShareHandling] = useState<ShareHandling>('ask');
   const [currency, setCurrency] = useState(presetCurrency ?? profile.starredCurrencies[0] ?? 'AUD');
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const create = () => {
     const trimmed = name.trim();
     if (!trimmed) return toast(t('ledger.nameRequired'));
-    const id = repo.createLedger({ name: trimmed, currency, kind: 'personal' });
+    const members = people.filter((p) => selected.includes(p.key)).map((p) => p.member);
+    if (kind === 'shared' && members.length === 0) return toast(t('ledger.needMember'));
+    const id = repo.createLedger({ name: trimmed, currency, kind, members, shareHandling });
     toast(t('ledger.created', { name: trimmed, cur: currency }));
-    if (params.then === 'category') {
+    if (params.then === 'split' && kind === 'shared') {
+      useEntryDraft.getState().set({ sharedLedgerId: id, currency });
+      router.replace('/add/split');
+    } else if (params.then === 'category' && kind === 'personal') {
       useEntryDraft.getState().set({ ledgerId: id, currency });
       router.replace('/add/category');
     } else if (params.then === 'back') {
@@ -106,7 +119,7 @@ export function NewLedgerScreen() {
                 <Pressable
                   key={k.value}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: on }}
+                  aria-checked={on}
                   onPress={() => setKind(k.value)}
                   style={{
                     flex: 1,
@@ -128,11 +141,6 @@ export function NewLedgerScreen() {
               );
             })}
           </View>
-          {kind === 'shared' && (
-            <Txt size={13} color={colors.accentRamp[700]} style={{ paddingHorizontal: 6, paddingTop: 4 }}>
-              {t('ledger.sharedLater')}
-            </Txt>
-          )}
         </View>
 
         <View style={{ gap: 6 }}>
@@ -167,9 +175,26 @@ export function NewLedgerScreen() {
             {t('ledger.currencyLocked')}
           </Txt>
         </View>
+
+        {kind === 'shared' && (
+          <>
+            <View style={{ gap: 8 }}>
+              <Txt font="semibold" size={13} color={colors.neutral[700]}>
+                {t('ledger.members')}
+              </Txt>
+              <MemberPicker selected={selected} onChange={setSelected} />
+            </View>
+            <View style={{ gap: 8 }}>
+              <Txt font="semibold" size={13} color={colors.neutral[700]}>
+                {t('ledger.yourShare')}
+              </Txt>
+              <ShareHandlingPicker value={shareHandling} onChange={setShareHandling} />
+            </View>
+          </>
+        )}
       </ScrollView>
       <View style={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 6 }}>
-        <PillButton label={t('ledger.create')} height={60} onPress={create} disabled={kind === 'shared'} />
+        <PillButton label={t('ledger.create')} height={60} onPress={create} />
       </View>
 
       {pickerOpen && (

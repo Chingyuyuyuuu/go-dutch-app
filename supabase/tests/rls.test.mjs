@@ -1,10 +1,9 @@
 // Row level security and trigger tests for supabase/migrations, run in PGlite
 // (real Postgres compiled to WebAssembly, no Docker needed). Run: npm run test:db
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
 import { before, beforeEach, describe, it } from 'node:test';
 
-import { PGlite } from '@electric-sql/pglite';
+import { as as asUser, createDb, TABLES } from './helpers.mjs';
 
 const ALICE = '00000000-0000-0000-0000-00000000000a';
 const BOB = '00000000-0000-0000-0000-00000000000b';
@@ -12,24 +11,8 @@ const LIVING = '10000000-0000-0000-0000-000000000001';
 const OLD = '10000000-0000-0000-0000-000000000002';
 const ENTRY = '20000000-0000-0000-0000-000000000001';
 
-const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
-const migrationsDir = new URL('../migrations/', import.meta.url);
-const migrations = readdirSync(migrationsDir)
-  .filter((f) => f.endsWith('.sql'))
-  .sort()
-  .map((f) => readFileSync(new URL(f, migrationsDir), 'utf8'));
-
 let db;
-
-/** Runs `sql` as a signed-in user (role authenticated, JWT sub = uid). */
-async function as(uid, sql, params = []) {
-  await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${uid}', false);`);
-  try {
-    return await db.query(sql, params);
-  } finally {
-    await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false);`);
-  }
-}
+const as = (uid, sql, params) => asUser(db, uid, sql, params);
 
 const rejects = (promise) => assert.rejects(promise);
 
@@ -37,14 +20,12 @@ const entrySql = `insert into public.entries (id, ledger_id, type, amount_minor,
   values ($1, $2, 'expense', $3, 'coffee', $4, 'Flat white')`;
 
 before(async () => {
-  db = new PGlite();
-  await db.exec(read('./supabase-stubs.sql'));
-  for (const sql of migrations) await db.exec(sql);
+  db = await createDb();
 });
 
 beforeEach(async () => {
   await db.exec(`
-    truncate public.entries, public.ledger_prefs, public.ledger_members, public.ledgers, public.profiles, auth.users cascade;
+    truncate ${TABLES} cascade;
     insert into auth.users (id, email) values ('${ALICE}', 'alice@example.com'), ('${BOB}', 'bob@example.com');
   `);
   await as(

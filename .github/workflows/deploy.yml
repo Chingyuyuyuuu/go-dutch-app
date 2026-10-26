@@ -6,6 +6,7 @@
 #   Variable EXPO_PUBLIC_SUPABASE_URL              optional; without it the site runs in demo mode
 #   Variable EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY  optional; the publishable key is public by design
 #   Variable EAS_DEV_DOMAIN                        optional; subdomain for the very first deployment
+#   Variable EXPO_PUBLIC_WEB_URL                   optional; the site address, for invite links
 
 name: Deploy web
 
@@ -54,6 +55,7 @@ jobs:
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_WEB_URL: ${{ vars.EXPO_PUBLIC_WEB_URL }}
 
       - name: Deploy to EAS Hosting (production URL)
         run: npx --yes eas-cli@latest deploy --prod --non-interactive ${EAS_DEV_DOMAIN:+--dev-domain "$EAS_DEV_DOMAIN"}

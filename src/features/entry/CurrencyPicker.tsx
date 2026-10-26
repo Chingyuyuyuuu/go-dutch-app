@@ -117,7 +117,7 @@ export function CurrencyPicker({
           return (
             <Pressable
               accessibilityRole={onSelect ? 'button' : undefined}
-              accessibilityState={{ selected: isSelected }}
+              aria-selected={isSelected}
               disabled={!onSelect}
               onPress={() => onSelect?.(code)}
               style={({ pressed }) => ({

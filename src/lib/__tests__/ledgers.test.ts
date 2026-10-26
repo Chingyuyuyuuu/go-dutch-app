@@ -1,4 +1,4 @@
-import type { Entry, Ledger } from '../domain';
+import { PERSONAL_ENTRY_FIELDS, type Entry, type Ledger } from '../domain';
 import { entryTypeFor, groupByDay, moveItem, orderLedgers, routePersonalEntry, summarise } from '../ledgers';
 
 const ledger = (id: string, overrides: Partial<Ledger> = {}): Ledger => ({
@@ -8,12 +8,14 @@ const ledger = (id: string, overrides: Partial<Ledger> = {}): Ledger => ({
   kind: 'personal',
   status: 'active',
   ownerUid: 'me',
+  members: [],
   memberUids: ['me'],
   createdAt: 0,
   ...overrides,
 });
 
 const entry = (id: string, overrides: Partial<Entry> = {}): Entry => ({
+  ...PERSONAL_ENTRY_FIELDS,
   id,
   ledgerId: 'living',
   type: 'expense',

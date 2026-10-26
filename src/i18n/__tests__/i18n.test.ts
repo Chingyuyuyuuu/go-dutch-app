@@ -9,7 +9,7 @@ const keysOf = (obj: object, prefix = ''): string[] =>
     typeof v === 'string' ? [`${prefix}${k}`] : keysOf(v as object, `${prefix}${k}.`),
   );
 
-const placeholders = (text: string) => [...text.matchAll(/{{(\w+)}}/g)].map((m) => m[1]).sort();
+const placeholders = (text: string) => [...new Set([...text.matchAll(/{{(\w+)}}/g)].map((m) => m[1]))].sort();
 
 describe('translations', () => {
   it('have the same keys in both languages', () => {

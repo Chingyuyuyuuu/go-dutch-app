@@ -1,9 +1,12 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { useAppData, useLedgerEntries } from '@/data/AppDataProvider';
+import { ALL_TIME, useAppData, useLedgerEntries, useRepo } from '@/data/AppDataProvider';
 import { useEditingEntry, useEntryDraft, useHomeTab } from '@/features/entry/draft';
+import { HomePhoto } from '@/features/appearance/HomePhoto';
+import { ChargeEditSheet } from '@/features/recurring/ChargeEditSheet';
+import { useChargeEdit } from '@/features/recurring/chargeEdit';
 import { useI18n } from '@/i18n';
 import {
   dayLabel,
@@ -14,18 +17,19 @@ import {
   todayLocal,
   toLocalDate,
 } from '@/lib/date';
-import type { Entry, Ledger } from '@/lib/domain';
+import type { Ledger } from '@/lib/domain';
 import { groupByDay, summarise } from '@/lib/ledgers';
 import { formatMoney, formatSignedMoney } from '@/lib/money';
 import { IconButton, PillButton } from '@/ui/Buttons';
-import { CategoryCircle } from '@/ui/CategoryCircle';
 import { Icon } from '@/ui/Icon';
 import { Screen } from '@/ui/Screen';
-import { shadows } from '@/ui/theme/palette';
 import { useColors } from '@/ui/theme/ThemeProvider';
+import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 
+import { EntryBubble } from './EntryBubble';
 import { HomeMenu } from './HomeMenu';
+import { SharedLedgerBody } from './SharedLedgerBody';
 
 /** Screen 01: sheet-tab home (direction 1a). */
 export function HomeScreen() {
@@ -35,6 +39,8 @@ export function HomeScreen() {
   const selectedId = useHomeTab((s) => s.ledgerId);
   const selectTab = useHomeTab((s) => s.select);
   const [menuOpen, setMenuOpen] = useState(false);
+  const charge = useChargeEdit((s) => s.target);
+  const closeCharge = useChargeEdit((s) => s.close);
 
   const today = todayLocal();
   const { year, month } = parseLocalDate(today);
@@ -51,6 +57,7 @@ export function HomeScreen() {
 
   return (
     <Screen>
+      <HomePhoto />
       <View
         style={{
           flexDirection: 'row',
@@ -89,8 +96,10 @@ export function HomeScreen() {
         onSelect={selectTab}
       />
 
-      {ledger ? (
-        <LedgerBody key={ledger.id} ledger={ledger} today={today} />
+      {ledger?.kind === 'shared' ? (
+        <SharedLedgerBody key={ledger.id} ledger={ledger} today={today} />
+      ) : ledger ? (
+        <PersonalLedgerBody key={ledger.id} ledger={ledger} today={today} onOpenLedger={selectTab} />
       ) : loaded ? (
         <EmptyState />
       ) : (
@@ -102,6 +111,7 @@ export function HomeScreen() {
       </View>
 
       {menuOpen && <HomeMenu onClose={() => setMenuOpen(false)} />}
+      {charge && <ChargeEditSheet key={JSON.stringify(charge)} target={charge} onClose={closeCharge} />}
     </Screen>
   );
 }
@@ -156,10 +166,10 @@ function LedgerTabs({
             <Pressable
               key={l.id}
               accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
+              aria-selected={active}
               accessibilityHint={t('home.tabHint')}
               onPress={() => onSelect(l.id)}
-              onLongPress={() => router.push('/reorder')}
+              onLongPress={() => router.push({ pathname: '/ledger/[id]', params: { id: l.id } })}
               style={{
                 height: 46,
                 paddingHorizontal: 14,
@@ -188,6 +198,7 @@ function LedgerTabs({
               <Txt font="bold" size={11} style={{ letterSpacing: 0.55, opacity: 0.65 }}>
                 {l.currency}
               </Txt>
+              {l.kind === 'shared' && !active && <NewActivityDot ledgerId={l.id} />}
             </Pressable>
           );
         })}
@@ -212,9 +223,38 @@ function LedgerTabs({
   );
 }
 
-function LedgerBody({ ledger, today }: { ledger: Ledger; today: string }) {
+/** A dot on a shared tab when someone else added entries since I last opened it. */
+function NewActivityDot({ ledgerId }: { ledgerId: string }) {
+  const colors = useColors();
+  const { t } = useI18n();
+  const repo = useRepo();
+  const { seen } = useAppData();
+  const entries = useLedgerEntries(ledgerId, ALL_TIME);
+  const lastSeen = seen[ledgerId] ?? 0;
+  const hasNew = entries.some((e) => e.createdBy !== repo.uid && e.createdAt > lastSeen);
+  if (!hasNew) return null;
+  return (
+    <View
+      accessibilityLabel={t('home.newTag')}
+      style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent2Ramp[600] }}
+    />
+  );
+}
+
+function PersonalLedgerBody({
+  ledger,
+  today,
+  onOpenLedger,
+}: {
+  ledger: Ledger;
+  today: string;
+  onOpenLedger: (id: string) => void;
+}) {
   const colors = useColors();
   const { t, lang } = useI18n();
+  const toast = useToast();
+  const repo = useRepo();
+  const { ledgers } = useAppData();
   const monthStart = startOfMonth(today);
   const [since, setSince] = useState(monthStart);
   const entries = useLedgerEntries(ledger.id, since);
@@ -222,6 +262,11 @@ function LedgerBody({ ledger, today }: { ledger: Ledger; today: string }) {
   const sum = summarise(thisMonth);
   const groups = useMemo(() => groupByDay(entries), [entries]);
   const cur = ledger.currency;
+  const ledgerName = (id: string | null) => ledgers.find((l) => l.id === id)?.name ?? '';
+
+  useEffect(() => {
+    repo.markSeen(ledger.id);
+  }, [repo, ledger.id]);
 
   const showEarlier = () => {
     const { year, month } = parseLocalDate(since);
@@ -294,65 +339,49 @@ function LedgerBody({ ledger, today }: { ledger: Ledger; today: string }) {
               {g.spent ? formatMoney(cur, g.spent) : ''}
             </Txt>
           </View>
-          {g.entries.map((e) => (
-            <EntryBubble key={e.id} entry={e} currency={cur} />
-          ))}
+          {g.entries.map((e) => {
+            // My share of a shared entry: shown with its source, edited only in the shared ledger.
+            const copy = !!e.sourceEntryId;
+            const source = ledgerName(e.sourceLedgerId);
+            const auto = !!e.recurringId;
+            return (
+              <EntryBubble
+                key={e.id}
+                entry={e}
+                currency={cur}
+                subtitle={source ? t('home.fromLedger', { name: source }) : undefined}
+                tags={auto ? [{ label: t('recurring.autoTag'), tone: 'accent' }] : []}
+                onPress={() => {
+                  if (copy) {
+                    toast(t('home.copyReadOnly', { name: source }));
+                    if (e.sourceLedgerId && source) onOpenLedger(e.sourceLedgerId);
+                    return;
+                  }
+                  if (auto && ledger.status === 'active') {
+                    useChargeEdit.getState().open({ ledgerId: e.ledgerId, entryId: e.id });
+                    return;
+                  }
+                  useEditingEntry.getState().open(e);
+                  router.push({
+                    pathname: '/entry/[ledgerId]/[entryId]',
+                    params: { ledgerId: e.ledgerId, entryId: e.id },
+                  });
+                }}
+              />
+            );
+          })}
         </View>
       ))}
-      <View style={{ alignItems: 'center', paddingTop: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', paddingTop: 16 }}>
         <PillButton label={t('home.showEarlier')} variant="ghost" fontSize={14} onPress={showEarlier} />
+        <PillButton
+          label={t('home.ledgerSettings')}
+          variant="ghost"
+          icon="settings"
+          fontSize={14}
+          onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: ledger.id } })}
+        />
       </View>
     </ScrollView>
-  );
-}
-
-function EntryBubble({ entry, currency }: { entry: Entry; currency: string }) {
-  const colors = useColors();
-  const { t } = useI18n();
-  const income = entry.type === 'income';
-  const categoryLabel = t(`category.${entry.categoryCode}`);
-  const amount = formatMoney(currency, entry.amountMinor, { sign: income ? '+' : '' });
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${entry.note || categoryLabel}, ${amount}`}
-      onPress={() => {
-        useEditingEntry.getState().open(entry);
-        router.push({
-          pathname: '/entry/[ledgerId]/[entryId]',
-          params: { ledgerId: entry.ledgerId, entryId: entry.id },
-        });
-      }}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        minHeight: 58,
-        marginTop: 8,
-        paddingVertical: 8,
-        paddingLeft: 8,
-        paddingRight: 18,
-        borderRadius: 999,
-        backgroundColor: pressed ? colors.neutral[200] : colors.neutral[100],
-        borderWidth: 1.5,
-        borderColor: 'rgba(255, 255, 255, 0.6)',
-        boxShadow: shadows.sm,
-      })}
-    >
-      <CategoryCircle code={entry.categoryCode} size={42} iconSize={19} />
-      <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-        <Txt font="semibold" size={15} numberOfLines={1}>
-          {entry.note || categoryLabel}
-        </Txt>
-        {entry.note ? (
-          <Txt size={12.5} color={colors.neutral[700]} numberOfLines={1}>
-            {categoryLabel}
-          </Txt>
-        ) : null}
-      </View>
-      <Txt font="bold" size={15} tabular color={income ? colors.accent2Ramp[700] : colors.text}>
-        {amount}
-      </Txt>
-    </Pressable>
   );
 }
