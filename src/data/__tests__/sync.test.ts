@@ -347,6 +347,31 @@ describe('offline-first sync', () => {
     expect(await repo.homePhotoUrl(store.state.profile.homePhoto ?? '')).toBe('data:image/jpeg;base64,xyz');
   });
 
+  it('never folds a change into the op that is being uploaded', async () => {
+    const { repo, remote, engine, store } = await setup();
+    let release: () => void = () => {};
+    const push = remote.push.bind(remote);
+    remote.push = (op) => new Promise((resolve) => (release = () => resolve(push(op))));
+    repo.updateProfile({ bgTheme: 'mint' });
+    await Promise.resolve();
+    // Sent while the first change is still on its way.
+    repo.updateProfile({ accentTheme: 'sea' });
+    expect(store.outbox).toHaveLength(2);
+    remote.push = push;
+    release();
+    await engine.flush();
+    expect(remote.pushed.map((o) => o.kind === 'profile' && o.patch)).toEqual([
+      { bgTheme: 'mint' },
+      { accentTheme: 'sea' },
+    ]);
+  });
+
+  it('keeps a delete when the insert is already on its way', () => {
+    const outbox = [{ kind: 'insertEntry' as const, entry: entry('e1'), opId: 'a' }];
+    const next = enqueueOp(outbox, { kind: 'deleteEntry', ledgerId: 'living', entryId: 'e1' }, 'b', 'a');
+    expect(next.map((o) => o.kind)).toEqual(['insertEntry', 'deleteEntry']);
+  });
+
   it('becomes ready after the first download, even when it fails', async () => {
     const { remote, engine } = await setup();
     const states: boolean[] = [];

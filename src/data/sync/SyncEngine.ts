@@ -69,6 +69,8 @@ export class SyncEngine {
   private stopped = false;
   /** Next pull downloads everything instead of changes since the cursor. */
   private needFullPull = false;
+  /** The op being uploaded right now; new changes are not folded into it. */
+  private inFlightId: string | null = null;
   private cleanups: (() => void)[] = [];
   private readyListeners = new Set<(ready: boolean) => void>();
   private _ready: boolean;
@@ -113,7 +115,7 @@ export class SyncEngine {
   }
 
   enqueue(op: Op) {
-    this.store.setOutbox(enqueueOp(this.store.outbox, op, this.options.newId()));
+    this.store.setOutbox(enqueueOp(this.store.outbox, op, this.options.newId(), this.inFlightId));
     void this.flush();
   }
 
@@ -163,10 +165,13 @@ export class SyncEngine {
     while (!this.stopped && this.store.outbox.length > 0) {
       const op = this.store.outbox[0];
       let result: PushResult;
+      this.inFlightId = op.opId;
       try {
         result = await this.remote.push(op);
       } catch {
         result = { status: 'retry' };
+      } finally {
+        this.inFlightId = null;
       }
       if (result.status === 'retry') {
         this.scheduleRetry();

@@ -112,8 +112,24 @@ const isLedgerCreate = (
  * where possible: edits to an unsent entry or ledger change the insert itself,
  * deleting something that was never sent drops it, and repeated profile / pref /
  * star changes keep only the latest.
+ *
+ * `inFlightId` is the op being uploaded right now (always the first). It counts
+ * as sent: nothing is folded into it, or the folded change would be dropped
+ * with it when the upload finishes.
  */
-export function enqueueOp(outbox: readonly QueuedOp[], op: Op, opId: string): QueuedOp[] {
+export function enqueueOp(
+  outbox: readonly QueuedOp[],
+  op: Op,
+  opId: string,
+  inFlightId: string | null = null,
+): QueuedOp[] {
+  if (inFlightId && outbox[0]?.opId === inFlightId) {
+    return [outbox[0], ...foldOp(outbox.slice(1), op, opId)];
+  }
+  return foldOp(outbox, op, opId);
+}
+
+function foldOp(outbox: readonly QueuedOp[], op: Op, opId: string): QueuedOp[] {
   const key = opRowKey(op);
   const sameRow = (q: QueuedOp) => opRowKey(q) === key;
   const replaceAt = (i: number, next: QueuedOp) => outbox.map((q, j) => (j === i ? next : q));

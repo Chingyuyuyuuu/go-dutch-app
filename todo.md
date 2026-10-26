@@ -10,13 +10,13 @@
 - [ ] **在手機上用 Expo Go 看**：手機裝 Expo Go → 電腦在專案資料夾跑 `npm install`、`npx expo start` → 掃 QR code（同一個 Wi‑Fi；不同網路用 `npx expo start --tunnel`）。沒設定 Supabase 前是試用模式
 - [x] **建立 Supabase 專案**（2026-10-27 完成：專案 `Cyy ChipIn`，Sydney；設定已檢查）：
 - [ ] 👤 **上線前**刪除測試帳號（開發期間先保留，自動測試會繼續用）：SQL Editor 執行 `delete from auth.users where email like 'gd-test-%@example.com';`，會連同測試帳本、好友關係一起刪除
-- [ ] **套用 Phase 4 的資料庫變更**：Supabase → SQL Editor → 貼上並執行 `supabase/migrations/20261028000000_recurring_banks.sql` 整個檔案（定期扣款、銀行帳戶）。**要在下次 push 到 main 之前做**，網頁版才會有這些功能；沒套用也不會壞，只是定期扣款、銀行帳戶不會同步到雲端
-- [ ] **開啟 Cron（每小時自動記入扣款）**：執行上面的 SQL 時如果下方出現「pg_cron not set up」的提示，到 Integrations → Cron 開啟，再到 SQL Editor 執行一行 `select cron.schedule('go-dutch-recurring', '7 * * * *', 'select public.run_all_recurring()');`。沒開的話，App 每次開啟、同步時也會記入到期的扣款，只是手機沒開就不會記
-- [ ] **套用 Phase 5 的資料庫變更**：SQL Editor 再執行 `supabase/migrations/20261029000000_appearance_account.sql`（外觀設定、首頁照片的儲存空間 `home-photos`、刪除帳號）。要在上一個檔案之後執行
-- [ ] 上面幾項做完跟我說，我用你的專案跑一次定期扣款、銀行對帳、首頁照片上傳、刪除帳號的端到端測試（刪除帳號會用新的測試帳號）
+- [x] **套用 Phase 4 的資料庫變更**（2026-10-27 完成）：Supabase → SQL Editor → 貼上並執行 `supabase/migrations/20261028000000_recurring_banks.sql` 整個檔案（定期扣款、銀行帳戶）。**要在下次 push 到 main 之前做**，網頁版才會有這些功能；沒套用也不會壞，只是定期扣款、銀行帳戶不會同步到雲端
+- [ ] **確認 Cron 有開（每小時自動記入扣款）**：到 Integrations → Cron 看有沒有 `go-dutch-recurring` 這個排程。我從外面查不到 Cron 狀態（SQL 執行時如果出現「pg_cron not set up」就是沒開）。執行上面的 SQL 時如果下方出現「pg_cron not set up」的提示，到 Integrations → Cron 開啟，再到 SQL Editor 執行一行 `select cron.schedule('go-dutch-recurring', '7 * * * *', 'select public.run_all_recurring()');`。沒開的話，App 每次開啟、同步時也會記入到期的扣款，只是手機沒開就不會記
+- [x] **套用 Phase 5 的資料庫變更**（2026-10-27 完成）：SQL Editor 再執行 `supabase/migrations/20261029000000_appearance_account.sql`（外觀設定、首頁照片的儲存空間 `home-photos`、刪除帳號）。要在上一個檔案之後執行
+- [x] 用你的專案跑定期扣款、銀行對帳、首頁照片上傳、刪除帳號的端到端測試（2026-10-27，23 項通過，見 log.md）
 - [ ] **設定自動部署**：GitHub repo → Settings → Secrets and variables → Actions → 新增 Secret `EXPO_TOKEN`（expo.dev → Account settings → Access tokens 產生）。之後 push 到 `main` 就會自動部署（詳見 README）
-- [ ] 部署後，把網站網址填到 GitHub Variable `EXPO_PUBLIC_WEB_URL`（和 `.env.local`），手機分享的邀請連結才會是網址；沒填的話手機上會分享邀請碼
-- [ ] **部署第一個網頁預覽網址**：`npx eas-cli@latest login` → `npm run deploy:web`（EAS 專案 `godutchapp` 已經連好）。完成後把網址給我記進 log.md
+- [ ] 把網站網址 `https://chipinla.expo.app` 填到 GitHub Variable `EXPO_PUBLIC_WEB_URL` 和 `.env.local` 的 `EXPO_PUBLIC_WEB_URL=`，手機分享的邀請連結才會是網址；沒填的話手機上會分享邀請碼
+- [x] **部署網頁預覽**：正式網址 https://chipinla.expo.app（2026-10-27 部署 Phase 1–5）
 - [ ] **決定 App 正式名稱與 Bundle ID / Package name**：目前暫用名稱 `Go Dutch`、ID `com.godutch.app`（在 `app.config.ts`），第一次送商店前一定要定案
 - [ ] 要不要刪掉重複的 PDF：`docs/design-handoff/design/記帳分帳App_功能與目標客群.pdf` 與 `docs/design-handoff/spec/features-and-audience-zh-TW.pdf` 內容完全相同
 - [ ] 確認 `docs/design-handoff/`（約 5.8 MB）要不要進 git；不想放的話加到 `.gitignore`
@@ -171,7 +171,7 @@
 - [x] 每月檢查（23）：本月 vs 上月、各類別長條與差額、固定支出卡、對帳差額卡；多個個人帳本可切換
 - [x] 首頁選單副標（每月約 $X、N 個需要更新、9 月已完成）
 - [x] 所有計算公式的單元測試（定期扣款、分期、月合計、對帳、每月比較、提醒排程）
-- [ ] 用你的 Supabase 專案跑定期扣款、銀行對帳的端到端測試（等你套用 SQL）
+- [x] 用你的 Supabase 專案跑定期扣款、銀行對帳的端到端測試（2026-10-27 通過）
 - [ ] 在手機（Expo Go）確認通知：前一天提醒、今天已扣款（含「修改金額」「刪除」按鈕）、銀行提醒
 
 ## Phase 5｜桌面小工具、外觀個人化與上架
@@ -188,7 +188,7 @@
 - [ ] 推播（從 Phase 3 移過來）：Expo Push 權杖、分帳新增／修改／代記還款通知；需要 development build 與 Apple Developer 帳號
 - [ ] 小工具多語言
 - [x] 刪除帳號（App Store 規定）：設定 → 帳號 → 刪除帳號；伺服器 function `delete_my_account`
-  - [ ] 用真的 Supabase 測一次（等你套用 SQL）
+  - [x] 用真的 Supabase 測過（2026-10-27）
   - 已處理：刪除前先把他在分帳帳本的成員改成沒有帳號的同名成員，所以不會再碰到「付款人指向他」的錯誤
 - [ ] 當機回報、基本使用分析（等上面「原生功能」的決定；建議 Sentry）
 - [ ] 效能與無障礙檢查（點擊範圍 44px、動態字級、螢幕閱讀器標籤）
