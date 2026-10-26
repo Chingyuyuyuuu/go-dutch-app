@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-a4faac8f-9286-4e8b-a3d3-fcedc528df91/styles.css">
+<script src="_ds/organic-a4faac8f-9286-4e8b-a3d3-fcedc528df91/_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--color-neutral-200)} a{color:var(--color-accent-700)} a:hover{color:var(--color-accent-800)}</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;gap:48px;align-items:center;justify-content:center;padding:40px 24px;box-sizing:border-box;font-family:var(--font-body);color:var(--color-text)">
+  <div style="display:flex;flex-direction:column;gap:12px;max-width:320px">
+    <span style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-700)">可點擊原型</span>
+    <span style="font-family:var(--font-heading);font-size:34px;line-height:1.1">記帳分帳 App</span>
+    <p style="margin:0;font-size:15px;line-height:1.6;text-wrap:pretty">可以試試：點分頁切換帳本、輸入金額後選類型再點類別存檔、換幣別並打星號、在 Flat 或 Japan Trip 分帳、結清、結束帳本、新增帳本，也可以從設定進桌面小工具。首頁右上選單裡有定期扣款（含 Afterpay 與定期分帳）、銀行餘額對帳、每月檢查，以及排列分頁（可拖曳）。平台、語言和首頁方向在 Tweaks 裡切換，也可以在 app 的設定裡改語言。</p>
+    <a href="Ledger App Design.dc.html" style="font-size:15px">← 回到全部畫面</a>
+  </div>
+  <dc-import name="Phone" screen="home" platform="{{ platform }}" lang="{{ lang }}" direction="{{ direction }}" interactive="{{ true }}" hint-size="410px,864px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ios&quot;,&quot;android&quot;],&quot;default&quot;:&quot;ios&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;zh&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;,&quot;C&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals(){ return {lang:this.props.lang??'en',platform:this.props.platform??'ios',direction:this.props.direction??'A'}; }
+}
+</script>
+</body>
+</html>

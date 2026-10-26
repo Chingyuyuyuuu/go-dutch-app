@@ -1,0 +1,6 @@
+docs/
+dist/
+node_modules/
+*.md
+package-lock.json
+src/lib/currency/currencies.data.ts

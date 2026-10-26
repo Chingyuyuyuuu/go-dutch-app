@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-a4faac8f-9286-4e8b-a3d3-fcedc528df91/styles.css">
+<script src="_ds/organic-a4faac8f-9286-4e8b-a3d3-fcedc528df91/_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--color-neutral-200)} a{color:var(--color-accent-700)} a:hover{color:var(--color-accent-800)}</style>
+</helmet>
+<section style="padding:72px 72px 40px;display:flex;flex-direction:column;gap:32px;font-family:var(--font-body);color:var(--color-text)">
+  <div style="display:flex;flex-direction:column;gap:10px;max-width:880px">
+    <span style="font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-700)">Turn 1 · 首頁方向</span>
+    <span style="font-family:var(--font-heading);font-size:44px;line-height:1.1">記帳分帳 App — 三種首頁</span>
+    <p style="margin:0;font-size:16px;line-height:1.6;text-wrap:pretty">三個方向都用 Organic 設計系統，差別只在帳本分頁放在哪裡、本月數字怎麼呈現。下方的完整畫面先用 <a href="#1a">1a</a>。要看會動的版本，請開 <a href="Ledger App Prototype.dc.html">可點擊原型</a>。</p>
+  </div>
+  <div style="display:flex;gap:64px;align-items:flex-start">
+    <div id="1a" style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;gap:12px"><span style="padding:4px 14px;border-radius:999px;background:var(--color-text);color:var(--color-bg);font-weight:700;font-size:15px">1a</span><span style="font-family:var(--font-heading);font-size:24px">工作表分頁</span></div>
+      <p style="margin:0;max-width:860px;font-size:15px;line-height:1.55">分頁長得像 Excel 工作表的頁籤，跟下面的內容面板連在一起，目前開的是哪個帳本一看就知道。</p>
+      <div style="display:flex;gap:28px">
+        <dc-import name="Phone" screen="home" platform="ios" direction="A" hint-size="410px,864px"></dc-import>
+        <dc-import name="Phone" screen="home-split" platform="ios" direction="A" hint-size="410px,864px"></dc-import>
+      </div>
+    </div>
+    <div id="1b" style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;gap:12px"><span style="padding:4px 14px;border-radius:999px;background:var(--color-text);color:var(--color-bg);font-weight:700;font-size:15px">1b</span><span style="font-family:var(--font-heading);font-size:24px">大數字</span></div>
+      <p style="margin:0;max-width:860px;font-size:15px;line-height:1.55">分頁改成膠囊按鈕，本月支出用大字放在最上面，打開就知道這個月花了多少。</p>
+      <div style="display:flex;gap:28px">
+        <dc-import name="Phone" screen="home" platform="ios" direction="B" hint-size="410px,864px"></dc-import>
+        <dc-import name="Phone" screen="home-split" platform="ios" direction="B" hint-size="410px,864px"></dc-import>
+      </div>
+    </div>
+    <div id="1c" style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;gap:12px"><span style="padding:4px 14px;border-radius:999px;background:var(--color-text);color:var(--color-bg);font-weight:700;font-size:15px">1c</span><span style="font-family:var(--font-heading);font-size:24px">分頁在底部</span></div>
+      <p style="margin:0;max-width:860px;font-size:15px;line-height:1.55">分頁放在「Add entry」正上方，位置跟 Excel 一樣，單手用拇指就能切換帳本。</p>
+      <div style="display:flex;gap:28px">
+        <dc-import name="Phone" screen="home" platform="ios" direction="C" hint-size="410px,864px"></dc-import>
+        <dc-import name="Phone" screen="home-split" platform="ios" direction="C" hint-size="410px,864px"></dc-import>
+      </div>
+    </div>
+  </div>
+</section>
+<section style="padding:40px 72px;display:flex;flex-direction:column;gap:28px;font-family:var(--font-body);color:var(--color-text)">
+  <span style="font-family:var(--font-heading);font-size:32px">完整畫面 · iOS</span>
+  <div style="display:flex;gap:36px;align-items:flex-start">
+    <sc-for list="{{ screens }}" as="s" hint-placeholder-count="35">
+      <div style="display:flex;flex-direction:column;gap:14px;width:410px">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-weight:700;font-size:14px;color:var(--color-accent-700);font-variant-numeric:tabular-nums">{{ s.num }}</span><span style="font-family:var(--font-heading);font-size:20px">{{ s.label }}</span></div>
+        <span style="font-size:14px;line-height:1.5;color:var(--color-neutral-800);min-height:42px">{{ s.note }}</span>
+        <dc-import name="Phone" screen="{{ s.id }}" platform="ios" direction="A" theme="{{ s.theme }}" bg="{{ s.bg }}" photo="{{ s.photo }}" panel="{{ s.panel }}" hint-size="410px,864px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+</section>
+<section style="padding:40px 72px;display:flex;flex-direction:column;gap:28px;font-family:var(--font-body);color:var(--color-text)">
+  <span style="font-family:var(--font-heading);font-size:32px">完整畫面 · 繁體中文（zh-TW）· iOS</span>
+  <div style="display:flex;gap:36px;align-items:flex-start">
+    <sc-for list="{{ screens }}" as="s" hint-placeholder-count="35">
+      <div style="display:flex;flex-direction:column;gap:14px;width:410px">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-weight:700;font-size:14px;color:var(--color-accent-700);font-variant-numeric:tabular-nums">{{ s.num }}</span><span style="font-family:var(--font-heading);font-size:20px">{{ s.label }}</span></div>
+        <dc-import name="Phone" screen="{{ s.id }}" platform="ios" lang="zh" direction="A" theme="{{ s.theme }}" bg="{{ s.bg }}" photo="{{ s.photo }}" panel="{{ s.panel }}" hint-size="410px,864px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+</section>
+<section style="padding:40px 72px 96px;display:flex;flex-direction:column;gap:28px;font-family:var(--font-body);color:var(--color-text)">
+  <span style="font-family:var(--font-heading);font-size:32px">完整畫面 · Android</span>
+  <div style="display:flex;gap:36px;align-items:flex-start">
+    <sc-for list="{{ screens }}" as="s" hint-placeholder-count="35">
+      <div style="display:flex;flex-direction:column;gap:14px;width:410px">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-weight:700;font-size:14px;color:var(--color-accent-700);font-variant-numeric:tabular-nums">{{ s.num }}</span><span style="font-family:var(--font-heading);font-size:20px">{{ s.label }}</span></div>
+        <dc-import name="Phone" screen="{{ s.id }}" platform="android" direction="A" theme="{{ s.theme }}" bg="{{ s.bg }}" photo="{{ s.photo }}" panel="{{ s.panel }}" hint-size="410px,864px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals(){
+    const S=[
+      ['home','首頁 · 個人帳本','本月支出、收入、結餘，下面是依日期分組的紀錄。'],
+      ['home-split','首頁 · 分帳帳本','頂部顯示誰欠誰多少；每筆標出誰付的，被別人改過會標記。'],
+      ['menu','首頁 · 右上選單','原本的三個按鈕收進一個選單，新增定期扣款、銀行餘額、每月檢查和排列分頁。'],
+      ['reorder','排列分頁','打星號置頂，長按拖曳排序；新增紀錄不會改變順序。'],
+      ['amount','記一筆 · 金額','一打開就是數字鍵盤，幣別在金額旁邊，三種類型直接選。'],
+      ['currency','幣別選單','上面是打星號的常用幣別，下面是全部幣別，可以搜尋。'],
+      ['category','類別 · 澳洲情境','加入房租、Opal / Myki、Bond 押金、訂閱；收入多了退稅和 Super。點類別後進到備註和儲存。'],
+      ['category-note','類別 · 備註與儲存','點了類別後跳出這一步：可以寫備註，按「儲存」才記下來。'],
+      ['category-date','補登 · 改日期','點日期可以改成昨天或這個月的任何一天，未來的日子不能選。'],
+      ['route','帳本路由 · 2 個以上','同幣別有多個個人帳本時才問，上次用的排在第一個。'],
+      ['route-none','帳本路由 · 還沒有','這個幣別還沒有帳本，先建一個，建好回來繼續記。'],
+      ['split','分帳 · 成員與分配','預設帳本全部成員、自己付、均分；除不盡的零頭依序分配。'],
+      ['newledger','新增帳本','建立後幣別不能改；分帳帳本可以設定自己分到的部分怎麼處理。'],
+      ['friends','好友 / 虛擬朋友','用邀請連結或 QR code 加好友；常用好友排最前面。'],
+      ['settle','結清','金額一開始是空的，直接跳出數字鍵盤；也可以按「結清全額」。'],
+      ['settle-ben','結清 · 代記部分還款','朋友還你錢但沒記時可以幫他代記。金額可以自己輸入（這裡是部分還款 ¥700），或按「結清全額」。'],
+      ['end','結束帳本','問要不要把自己分到的部分記進同幣別的個人帳本。'],
+      ['recurring','定期扣款','Apple ID 訂閱、自動扣款、Afterpay 分期、定期分帳全部在一頁，最上面是每月固定支出。'],
+      ['recurring-new','新增定期扣款 · 一般','點常見訂閱直接帶入名稱和金額，再選頻率；前一天提醒預設關閉。'],
+      ['recurring-afterpay','新增定期扣款 · Afterpay','輸入總金額和第一期日期，自動拆成 4 期、每兩週一次，繳完自動停止；分期預設開啟提醒。'],
+      ['recurring-split','新增定期扣款 · 定期分帳','房租每週自動記入合租帳本並均分，室友會收到通知。'],
+      ['charge-notif','扣款推播','扣款當天自動記入並推播；分期前一天提醒；銀行餘額定期催你更新。'],
+      ['charge-edit','扣款 · 修改或刪除','金額不對直接改，只影響這一筆。'],
+      ['banks','銀行餘額','只需名稱和幣別，不用連結銀行；每週或每月提醒更新。'],
+      ['balance-update','更新餘額','只輸入一個數字。'],
+      ['reconcile','對帳結果','餘額少了 $500、帳上只記了 $420，就顯示「有 $80 沒記到」，可以補記或略過。'],
+      ['monthly','每月檢查','各類別和上個月比較，加上每月固定支出與沒記到的差額。'],
+      ['widgets','桌面小工具','小尺寸：記一筆加本月支出；中尺寸：再加三個捷徑。'],
+      ['settings','設定 · 語言','預設跟著手機語言；日期格式會跟著語言改變。'],
+      ['appearance','外觀 · 背景色、選項色、照片','背景色和選項色分開選，各五種；預設是 Cream 背景加橘黃色 Marigold。也可以放自己的照片。'],
+      ['photo-confirm','外觀 · 確認照片','選好照片後先預覽，按「Use this photo」才會套用到首頁，按 Cancel 就不換。','marigold','assets/sample-photo.jpg'],
+      ['home','首頁 · Sky 背景 + Plum 選項色','只換顏色、不放照片的首頁。','plum','','sky'],
+      ['appearance','外觀 · 面板透明度','Solid、Semi（半透明）、Clear（透明）三種，沒放照片也能選。','marigold','assets/sample-photo.jpg','cream','60'],
+      ['home','首頁 · 照片 + 半透明','面板半透明加模糊，照片隱約透出來。','marigold','assets/sample-photo.jpg','cream','60'],
+      ['home','首頁 · 照片 + 透明 + Sea','面板幾乎全透明，只留模糊，照片看得最清楚。','sea','assets/sample-photo.jpg','cream','20']];
+    return {screens:S.map(([id,label,note,theme,photo,bg,panel],i)=>({id,label,note,theme:theme||'marigold',photo:photo||'',bg:bg||'cream',panel:panel||'100',num:String(i+1).padStart(2,'0')}))};
+  }
+}
+</script>
+</body>
+</html>

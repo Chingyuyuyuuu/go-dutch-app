@@ -1,0 +1,62 @@
+# Deploys the web preview to EAS Hosting (https://<subdomain>.expo.app) on every push to main.
+# Checks run first; nothing is deployed if any of them fail.
+#
+# Needs in GitHub → Settings → Secrets and variables → Actions:
+#   Secret   EXPO_TOKEN                            expo.dev → Account settings → Access tokens
+#   Variable EXPO_PUBLIC_SUPABASE_URL              optional; without it the site runs in demo mode
+#   Variable EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY  optional; the publishable key is public by design
+#   Variable EAS_DEV_DOMAIN                        optional; subdomain for the very first deployment
+
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push replaces a deployment that is still running.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test -- --ci
+
+      - name: Database tests (RLS, PGlite)
+        run: npm run test:db
+
+      - name: Export web build
+        run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Deploy to EAS Hosting (production URL)
+        run: npx --yes eas-cli@latest deploy --prod --non-interactive ${EAS_DEV_DOMAIN:+--dev-domain "$EAS_DEV_DOMAIN"}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_DEV_DOMAIN: ${{ vars.EAS_DEV_DOMAIN }}

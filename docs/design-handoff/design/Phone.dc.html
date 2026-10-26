@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-a4faac8f-9286-4e8b-a3d3-fcedc528df91/styles.css">
+<script src="_ds/organic-a4faac8f-9286-4e8b-a3d3-fcedc528df91/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@0.460.0/font/lucide.css">
+<style>[class^="icon-"],[class*=" icon-"]{-webkit-text-stroke:0.4px currentColor;line-height:1;display:inline-block} button{font:inherit;color:inherit} a{color:var(--color-accent-700)} a:hover{color:var(--color-accent-800)} .noscroll::-webkit-scrollbar{display:none}</style>
+</helmet>
+<div ref="{{ rootRef }}" style="width:410px;height:864px;padding:10px;border-radius:56px;background:var(--color-neutral-900);box-shadow:var(--shadow-lg);flex:none;font-family:var(--font-body);color:var(--color-text);box-sizing:border-box">
+<div style="position:relative;width:390px;height:844px;border-radius:46px;overflow:hidden;background:var(--color-bg)">
+
+<sc-if value="{{ homePhoto }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0">
+  <img src="{{ photo }}" class="washed" style="width:100%;height:100%;object-fit:cover"></img>
+  <div style="position:absolute;inset:0;background:{{ scrim }}"></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.home }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:6px 16px 12px 22px">
+    <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:13px;color:var(--color-neutral-700)">{{ L.month }}</span>
+      <span style="font-family:var(--font-heading);font-size:26px;line-height:1.1">{{ L.myLedgers }}</span>
+    </div>
+    <button onClick="{{ goMenu }}" aria-label="Menu" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer" style-hover="background:var(--color-neutral-300)"><i class="icon-menu" style="font-size:20px"></i></button>
+  </div>
+
+  <sc-if value="{{ dirA }}" hint-placeholder-val="{{ true }}">
+  <div class="noscroll" style="display:flex;gap:4px;padding:0 12px;overflow-x:auto;scrollbar-width:none;flex:none">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button onClick="{{ t.onClick }}" style="flex:none;display:flex;align-items:center;gap:6px;height:46px;padding:0 14px;border:0;border-radius:18px 18px 0 0;background:{{ t.bg }};color:{{ t.fg }};cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">
+        <sc-if value="{{ t.star }}"><span style="color:var(--color-accent);font-size:13px">★</span></sc-if>
+        <sc-if value="{{ t.shared }}"><i class="icon-users" style="font-size:14px;color:var(--color-accent-2-700)"></i></sc-if>
+        <span>{{ t.name }}</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.05em;opacity:.65">{{ t.cur }}</span>
+      </button>
+    </sc-for>
+    <button onClick="{{ goNewLedger }}" style="flex:none;width:46px;height:46px;border:0;border-radius:18px 18px 0 0;background:color-mix(in srgb, var(--color-surface) 45%, transparent);display:grid;place-items:center;cursor:pointer"><i class="icon-plus" style="font-size:18px"></i></button>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ dirB }}" hint-placeholder-val="{{ false }}">
+  <div class="noscroll" style="display:flex;gap:8px;padding:0 16px 6px;overflow-x:auto;scrollbar-width:none;flex:none">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button onClick="{{ t.onClick }}" style="flex:none;display:flex;align-items:center;gap:6px;height:44px;padding:0 16px;border:0;border-radius:999px;background:{{ t.bg }};color:{{ t.fg }};cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">
+        <sc-if value="{{ t.star }}"><span style="color:var(--color-accent);font-size:13px">★</span></sc-if>
+        <sc-if value="{{ t.shared }}"><i class="icon-users" style="font-size:14px"></i></sc-if>
+        <span>{{ t.name }}</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.05em;opacity:.65">{{ t.cur }}</span>
+      </button>
+    </sc-for>
+    <button onClick="{{ goNewLedger }}" style="flex:none;width:44px;height:44px;border:1px dashed var(--color-neutral-500);border-radius:999px;background:transparent;display:grid;place-items:center;cursor:pointer"><i class="icon-plus" style="font-size:18px"></i></button>
+  </div>
+  </sc-if>
+
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;background:{{ mainBg }};border-radius:{{ mainRadius }};margin:{{ mainMargin }}">
+    <sc-if value="{{ isPersonal }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ dirB }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:14px 22px 10px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:13px;color:var(--color-neutral-700)">{{ L.spentIn }} · {{ led.name }}</span>
+        <span style="font-family:var(--font-heading);font-size:54px;line-height:1;font-variant-numeric:tabular-nums">{{ sum.spent }}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;gap:6px;align-items:center;padding:7px 14px;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);font-size:13px;font-weight:600">{{ L.income }} {{ sum.income }}</span>
+          <span style="display:inline-flex;gap:6px;align-items:center;padding:7px 14px;border-radius:999px;background:var(--color-surface);color:var(--color-neutral-800);font-size:13px;font-weight:600">{{ L.balance }} <span style="color:{{ sum.balColor }}">{{ sum.balance }}</span></span>
+        </div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ notB }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;padding:20px 20px 8px">
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--color-neutral-700)">{{ L.spent }}</span><span style="font-family:var(--font-heading);font-size:26px;line-height:1;font-variant-numeric:tabular-nums">{{ sum.spent }}</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--color-neutral-700)">{{ L.income }}</span><span style="font-weight:700;font-size:16px;color:var(--color-accent-2-700);font-variant-numeric:tabular-nums">{{ sum.income }}</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;color:var(--color-neutral-700)">{{ L.balance }}</span><span style="font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;color:{{ sum.balColor }}">{{ sum.balance }}</span></div>
+      </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ isShared }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:14px 14px 4px">
+        <div style="border-radius:28px;background:{{ cardBg }};padding:18px;display:flex;flex-direction:column;gap:12px;border:1.5px solid color-mix(in srgb, #ffffff 60%, transparent);box-shadow:{{ bubbleShadow }};backdrop-filter:{{ bubbleBlur }};-webkit-backdrop-filter:{{ bubbleBlur }}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="flex:1;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent-700)">{{ L.balance }}</span>
+            <div style="display:flex">
+              <sc-for list="{{ ledMembers }}" as="p">
+                <span style="width:30px;height:30px;border-radius:50%;background:{{ p.bg }};display:grid;place-items:center;font-size:12px;font-weight:700;margin-left:-6px;border:2px solid var(--color-bg)">{{ p.initial }}</span>
+              </sc-for>
+            </div>
+          </div>
+          <sc-for list="{{ balances }}" as="b" hint-placeholder-count="2">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="flex:1;font-size:16px;font-weight:600">{{ b.text }}</span>
+              <span style="font-family:var(--font-heading);font-size:28px;line-height:1;color:{{ b.color }};font-variant-numeric:tabular-nums">{{ b.amt }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ ledEnded }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="flex:1;font-size:13px;color:var(--color-neutral-700)">{{ L.endedRO }}</span>
+              <button onClick="{{ reopen }}" style="height:44px;padding:0 18px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:15px;cursor:pointer">{{ L.reopen }}</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ ledOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:8px">
+              <button onClick="{{ goSettle }}" style="flex:1;height:46px;border-radius:999px;border:0;background:var(--color-accent-2);color:var(--color-bg);font-family:var(--font-heading);font-size:16px;cursor:pointer" style-hover="background:var(--color-accent-2-600)">{{ L.settleUp }}</button>
+              <button onClick="{{ goEnd }}" style="flex:1;height:46px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:16px;cursor:pointer" style-hover="background:color-mix(in srgb, var(--color-text) 7%, transparent)">{{ L.endLedger }}</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+      <div style="padding:8px 14px 4px;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--color-neutral-700);padding:8px 10px 0">
+          <span>{{ g.label }}</span><span style="font-variant-numeric:tabular-nums">{{ g.total }}</span>
+        </div>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 18px 8px 8px;min-height:58px;margin-top:8px;border-radius:999px;background:{{ bubbleBg }};border:1.5px solid color-mix(in srgb, #ffffff 60%, transparent);box-shadow:{{ bubbleShadow }};backdrop-filter:{{ bubbleBlur }};-webkit-backdrop-filter:{{ bubbleBlur }}">
+            <div style="width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:{{ it.iconBg }};color:{{ it.iconFg }};flex:none"><i class="{{ it.icon }}" style="font-size:19px"></i></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.title }}</span>
+              <span style="font-size:12.5px;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.sub }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+              <span style="font-weight:700;font-size:15px;color:{{ it.amtColor }};font-variant-numeric:tabular-nums">{{ it.amt }}</span>
+              <sc-if value="{{ it.edited }}"><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:var(--color-accent-100);color:var(--color-accent-800)">{{ it.edited }}</span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="height:16px"></div>
+  </div>
+
+  <sc-if value="{{ dirC }}" hint-placeholder-val="{{ false }}">
+  <div class="noscroll" style="display:flex;gap:4px;padding:0 12px;overflow-x:auto;scrollbar-width:none;flex:none">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button onClick="{{ t.onClick }}" style="flex:none;display:flex;align-items:center;gap:6px;height:46px;padding:0 14px;border:0;border-radius:0 0 18px 18px;background:{{ t.bg }};color:{{ t.fg }};cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap">
+        <sc-if value="{{ t.star }}"><span style="color:var(--color-accent);font-size:13px">★</span></sc-if>
+        <sc-if value="{{ t.shared }}"><i class="icon-users" style="font-size:14px;color:var(--color-accent-2-700)"></i></sc-if>
+        <span>{{ t.name }}</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.05em;opacity:.65">{{ t.cur }}</span>
+      </button>
+    </sc-for>
+    <button onClick="{{ goNewLedger }}" style="flex:none;width:46px;height:46px;border:0;border-radius:0 0 18px 18px;background:color-mix(in srgb, var(--color-surface) 45%, transparent);display:grid;place-items:center;cursor:pointer"><i class="icon-plus" style="font-size:18px"></i></button>
+  </div>
+  </sc-if>
+
+  <div style="padding:12px 16px 6px;flex:none">
+    <button onClick="{{ onAdd }}" style="width:100%;height:60px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:21px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:var(--shadow-md);cursor:pointer" style-hover="background:var(--color-accent-600)" style-active="background:var(--color-accent-700)"><i class="icon-plus" style="font-size:22px"></i><span>{{ L.addEntry }}</span></button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.amount }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goHome }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="icon-x" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.newEntry }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 24px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onClick="{{ goCurrency }}" style="height:44px;padding:0 14px 0 16px;border-radius:999px;border:0;background:var(--color-surface);display:flex;align-items:center;gap:6px;font-weight:700;font-size:16px;letter-spacing:.03em;cursor:pointer" style-hover="background:var(--color-neutral-300)"><span>{{ cur }}</span><i class="icon-chevron-down" style="font-size:16px"></i></button>
+      <span style="font-size:13px;color:var(--color-neutral-700)">{{ curName }}</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:6px;font-family:var(--font-heading);line-height:1">
+      <span style="font-size:40px;color:var(--color-neutral-600)">{{ sym }}</span>
+      <span style="font-size:72px;font-variant-numeric:tabular-nums">{{ amtDisplay }}</span>
+      <span style="width:3px;height:58px;border-radius:2px;background:var(--color-accent);align-self:center"></span>
+    </div>
+    <span style="font-size:13px;color:var(--color-neutral-700);text-wrap:pretty">{{ amtHint }}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 10px">
+    <sc-for list="{{ types }}" as="t" hint-placeholder-count="3">
+      <button onClick="{{ t.onClick }}" style="height:72px;border-radius:24px;border:0;background:{{ t.bg }};color:{{ t.fg }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-weight:700;font-size:15px"><i class="{{ t.icon }}" style="font-size:20px"></i><span>{{ t.label }}</span></button>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:4px 16px 6px">
+    <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+      <button onClick="{{ k.onClick }}" style="height:56px;border-radius:20px;border:0;background:transparent;font-family:var(--font-heading);font-size:28px;display:grid;place-items:center;cursor:pointer;color:{{ k.fg }}" style-hover="background:var(--color-surface)" style-active="background:var(--color-neutral-300)"><sc-if value="{{ k.isDel }}"><i class="icon-delete" style="font-size:24px"></i></sc-if><sc-if value="{{ k.isTxt }}"><span>{{ k.k }}</span></sc-if></button>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.category }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.category }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div style="padding:10px 24px 18px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <span style="font-family:var(--font-heading);font-size:44px;line-height:1;font-variant-numeric:tabular-nums">{{ amtFull }}</span>
+      <span style="padding:4px 12px;border-radius:999px;background:{{ typeTagBg }};color:{{ typeTagFg }};font-size:13px;font-weight:700">{{ typeLabel }}</span>
+    </div>
+    <button onClick="{{ openRoute }}" style="align-self:flex-start;height:44px;padding:0 8px 0 16px;border-radius:999px;border:0;background:var(--color-surface);display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px" style-hover="background:var(--color-neutral-300)">
+      <i class="icon-book-open" style="font-size:16px;color:var(--color-accent-700)"></i>
+      <span>{{ L.savingTo }} <b>{{ ledgerLabel }}</b></span>
+      <span style="height:30px;padding:0 12px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--color-accent-700)">{{ L.change }}</span>
+    </button>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);align-content:start;gap:18px 6px;padding:8px 16px">
+    <sc-for list="{{ cats }}" as="c" hint-placeholder-count="12">
+      <button onClick="{{ c.onClick }}" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;padding:0">
+        <span style="width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:{{ c.bg }};color:{{ c.fg }}"><i class="{{ c.icon }}" style="font-size:26px"></i></span>
+        <span style="font-size:13px;font-weight:600;text-align:center;line-height:1.2">{{ c.label }}</span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="padding:8px 26px 14px">
+    <span style="font-size:13px;color:var(--color-neutral-700)">{{ L.tapToSave }}</span>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.split }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.split }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:6px 18px 10px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="flex:1;font-family:var(--font-heading);font-size:42px;line-height:1;font-variant-numeric:tabular-nums">{{ amtFull }}</span>
+      <div style="display:flex;flex:none;padding:3px;border-radius:999px;background:var(--color-surface)">
+        <sc-for list="{{ splitKinds }}" as="sk">
+          <button onClick="{{ sk.onClick }}" style="height:38px;padding:0 14px;white-space:nowrap;border-radius:999px;border:0;background:{{ sk.bg }};color:{{ sk.fg }};font-size:13px;font-weight:700;cursor:pointer">{{ sk.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;min-height:56px;padding:0 16px;border-radius:24px;background:var(--color-surface)">
+      <i class="icon-users" style="font-size:18px;color:var(--color-accent-2-700)"></i>
+      <span style="flex:1;font-weight:600;font-size:15px">{{ splitLedgerLabel }}</span>
+      <span style="padding:3px 10px;border-radius:999px;background:var(--color-accent-2-100);color:var(--color-accent-2-800);font-size:12px;font-weight:600">{{ L.onlyOne }}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.splitWith }}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <sc-for list="{{ splitMembers }}" as="m" hint-placeholder-count="3">
+          <button onClick="{{ m.onClick }}" style="height:46px;padding:0 14px 0 8px;border-radius:999px;border:1px solid {{ m.border }};background:{{ m.bg }};display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;opacity:{{ m.op }}">
+            <span style="width:30px;height:30px;border-radius:50%;background:{{ m.av }};display:grid;place-items:center;font-size:12px;font-weight:700">{{ m.initial }}</span>
+            <span>{{ m.name }}</span>
+            <i class="{{ m.icon }}" style="font-size:15px"></i>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="border-radius:24px;background:var(--color-surface);display:flex;flex-direction:column">
+      <button onClick="{{ cyclePayer }}" style="min-height:56px;padding:0 16px;border:0;background:transparent;display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px;text-align:left">
+        <span style="flex:1;color:var(--color-neutral-700)">{{ payerVerb }}</span>
+        <span style="font-weight:700">{{ payer }}</span><i class="icon-chevron-down" style="font-size:16px"></i>
+      </button>
+      <div style="height:1px;background:var(--color-divider);margin:0 16px"></div>
+      <button onClick="{{ toggleSplitOpen }}" style="min-height:56px;padding:0 16px;border:0;background:transparent;display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px;text-align:left">
+        <span style="flex:1;color:var(--color-neutral-700)">{{ L.shares }}</span>
+        <span style="font-weight:700">{{ L.splitEqually }}</span><i class="{{ splitChevron }}" style="font-size:16px"></i>
+      </button>
+      <sc-if value="{{ splitOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;padding:0 16px 14px;gap:2px">
+          <sc-for list="{{ shares }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:10px;min-height:40px">
+              <span style="width:26px;height:26px;border-radius:50%;background:{{ s.av }};display:grid;place-items:center;font-size:11px;font-weight:700">{{ s.initial }}</span>
+              <span style="flex:1;font-size:14px">{{ s.name }}</span>
+              <span style="font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;padding:6px 12px;border-radius:999px;background:var(--color-bg)">{{ s.amt }}</span>
+            </div>
+          </sc-for>
+          <sc-if value="{{ remNote }}"><span style="font-size:12px;color:var(--color-neutral-700);padding-top:4px">{{ remNote }}</span></sc-if>
+        </div>
+      </sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.catOptional }}</span>
+      <div class="noscroll" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none">
+        <sc-for list="{{ splitCats }}" as="c" hint-placeholder-count="6">
+          <button onClick="{{ c.onClick }}" style="flex:none;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:0;width:58px">
+            <span style="width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:{{ c.bg }};color:{{ c.fg }}"><i class="{{ c.icon }}" style="font-size:21px"></i></span>
+            <span style="font-size:12px">{{ c.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <label style="min-height:52px;padding:0 16px;border-radius:999px;background:var(--color-surface);display:flex;align-items:center;gap:10px">
+      <i class="icon-sticky-note" style="font-size:17px;color:var(--color-neutral-700)"></i>
+      <input value="{{ note }}" onChange="{{ onNote }}" placeholder="{{ L.notePh }}" style="flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;color:var(--color-text);outline:none"></input>
+    </label>
+  </div>
+  <div style="padding:10px 16px 6px">
+    <button onClick="{{ submitSplit }}" style="width:100%;height:60px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:21px;cursor:pointer;box-shadow:var(--shadow-md)" style-hover="background:var(--color-accent-600)">{{ L.addSplit }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.newledger }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="icon-x" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.newLedger }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 20px;display:flex;flex-direction:column;gap:20px">
+    <label style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.name }}</span>
+      <input value="{{ nlName }}" onChange="{{ onNlName }}" style="height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--color-divider);background:var(--color-surface);font:inherit;font-size:16px;color:var(--color-text);outline:none"></input>
+    </label>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.type }}</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <sc-for list="{{ nlKinds }}" as="k">
+          <button onClick="{{ k.onClick }}" style="min-height:64px;border-radius:24px;border:0;background:{{ k.bg }};color:{{ k.fg }};display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;padding:0 16px;cursor:pointer;text-align:left">
+            <span style="font-weight:700;font-size:15px">{{ k.label }}</span><span style="font-size:12px;opacity:.8">{{ k.sub }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.currency }}</span>
+      <button onClick="{{ cycleNlCur }}" style="min-height:52px;padding:0 18px;border-radius:999px;border:1px solid var(--color-divider);background:var(--color-surface);display:flex;align-items:center;gap:10px;cursor:pointer;font-size:15px">
+        <b>{{ nlCur }}</b><span style="flex:1;text-align:left;color:var(--color-neutral-700)">{{ nlCurName }}</span><i class="icon-chevron-down" style="font-size:16px"></i>
+      </button>
+      <span style="font-size:12px;color:var(--color-neutral-700);padding-left:6px">{{ L.curLocked }}</span>
+    </div>
+    <sc-if value="{{ nlShared }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.members }}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <sc-for list="{{ nlMembers }}" as="m" hint-placeholder-count="4">
+            <button onClick="{{ m.onClick }}" style="height:44px;padding:0 14px 0 7px;border-radius:999px;border:1px solid {{ m.border }};background:{{ m.bg }};display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600">
+              <span style="width:30px;height:30px;border-radius:50%;background:{{ m.av }};display:grid;place-items:center;font-size:12px;font-weight:700">{{ m.initial }}</span>{{ m.name }}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700)">{{ L.yourShare }}</span>
+        <div style="border-radius:24px;background:var(--color-surface);display:flex;flex-direction:column;padding:4px 0">
+          <sc-for list="{{ nlShares }}" as="o">
+            <button onClick="{{ o.onClick }}" style="min-height:52px;padding:0 16px;border:0;background:transparent;display:flex;align-items:center;gap:12px;cursor:pointer;font-size:14px;text-align:left">
+              <span style="width:20px;height:20px;border-radius:50%;border:2px solid {{ o.ring }};background:{{ o.dot }};box-shadow:inset 0 0 0 3px var(--color-surface);flex:none"></span>
+              <span>{{ o.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <span style="font-size:12px;color:var(--color-neutral-700);padding-left:6px">{{ L.eachSets }}</span>
+      </div>
+    </sc-if>
+  </div>
+  <div style="padding:10px 16px 6px">
+    <button onClick="{{ createLedger }}" style="width:100%;height:60px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:21px;cursor:pointer;box-shadow:var(--shadow-md)" style-hover="background:var(--color-accent-600)">{{ L.createLedger }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.friends }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.friends }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 18px;display:flex;flex-direction:column;gap:18px">
+    <div style="border-radius:32px;background:var(--color-accent-2-200);padding:20px;display:flex;flex-direction:column;gap:12px">
+      <span style="font-family:var(--font-heading);font-size:22px;color:var(--color-accent-2-900)">{{ L.invite }}</span>
+      <span style="font-size:14px;color:var(--color-accent-2-900)">{{ L.inviteBody }}</span>
+      <div style="display:flex;gap:8px">
+        <button onClick="{{ copyInvite }}" style="height:46px;padding:0 18px;border-radius:999px;border:0;background:var(--color-accent-2-800);color:var(--color-accent-2-100);display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-size:15px;cursor:pointer"><i class="icon-link" style="font-size:16px"></i>{{ L.shareLink }}</button>
+        <button onClick="{{ showQr }}" style="height:46px;padding:0 18px;border-radius:999px;border:1px solid var(--color-accent-2-700);background:transparent;color:var(--color-accent-2-900);display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-size:15px;cursor:pointer"><i class="icon-qr-code" style="font-size:16px"></i>QR code</button>
+      </div>
+    </div>
+    <sc-for list="{{ friendSections }}" as="sec" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column">
+        <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 4px 4px">{{ sec.title }}</span>
+        <sc-for list="{{ sec.rows }}" as="f">
+          <div style="display:flex;align-items:center;gap:12px;min-height:60px;padding:0 4px">
+            <span style="width:42px;height:42px;border-radius:50%;background:{{ f.av }};display:grid;place-items:center;font-weight:700;font-size:15px;border:{{ f.ring }}">{{ f.initial }}</span>
+            <div style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600;font-size:15px">{{ f.name }}</span><span style="font-size:12.5px;color:var(--color-neutral-700)">{{ f.sub }}</span></div>
+            <button onClick="{{ f.onStar }}" style="width:44px;height:44px;border-radius:50%;border:0;background:transparent;font-size:20px;color:{{ f.starColor }};cursor:pointer">{{ f.star }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <button onClick="{{ addPlaceholder }}" style="align-self:flex-start;height:46px;padding:0 18px;border-radius:999px;border:1px dashed var(--color-neutral-500);background:transparent;display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-size:15px;cursor:pointer"><i class="icon-plus" style="font-size:16px"></i>{{ L.addPh }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.settings }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.settings }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 18px;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ L.language }}</span>
+      <div style="border-radius:28px;background:var(--color-surface);display:flex;flex-direction:column;padding:4px 0">
+        <sc-for list="{{ langs }}" as="o" hint-placeholder-count="3">
+          <button onClick="{{ o.onClick }}" style="min-height:56px;padding:0 18px;border:0;background:transparent;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
+            <span style="width:20px;height:20px;border-radius:50%;border:2px solid {{ o.ring }};background:{{ o.dot }};box-shadow:inset 0 0 0 3px var(--color-surface);flex:none"></span>
+            <div style="display:flex;flex-direction:column"><span style="font-size:15px;font-weight:600">{{ o.label }}</span><sc-if value="{{ o.sub }}"><span style="font-size:12px;color:var(--color-neutral-700)">{{ o.sub }}</span></sc-if></div>
+          </button>
+        </sc-for>
+      </div>
+      <span style="font-size:12px;color:var(--color-neutral-700);padding:0 8px">{{ L.langNote }}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ L.formats }}</span>
+      <div style="border-radius:28px;background:var(--color-surface);display:flex;flex-direction:column;padding:4px 18px">
+        <div style="display:flex;min-height:50px;align-items:center"><span style="flex:1;font-size:15px">{{ L.date }}</span><b style="font-variant-numeric:tabular-nums">{{ dateFmt }}</b></div>
+        <div style="height:1px;background:var(--color-divider)"></div>
+        <div style="display:flex;min-height:50px;align-items:center"><span style="flex:1;font-size:15px">{{ L.amounts }}</span><b style="font-variant-numeric:tabular-nums">1,234.50</b></div>
+      </div>
+    </div>
+    <div style="border-radius:28px;background:var(--color-surface);display:flex;flex-direction:column;padding:4px 0">
+      <sc-for list="{{ settingRows }}" as="r" hint-placeholder-count="4">
+        <button onClick="{{ r.onClick }}" style="min-height:54px;padding:0 18px;border:0;background:transparent;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left;font-size:15px">
+          <i class="{{ r.icon }}" style="font-size:18px;color:var(--color-accent-700)"></i><span style="flex:1">{{ r.label }}</span><span style="font-size:13px;color:var(--color-neutral-700)">{{ r.value }}</span><i class="icon-chevron-right" style="font-size:16px;color:var(--color-neutral-600)"></i>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.appearance }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L.appearance }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 18px;display:flex;flex-direction:column;gap:22px">
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ L.bgColour }}</span>
+      <div style="border-radius:28px;background:var(--color-surface);padding:18px 12px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px">
+        <sc-for list="{{ bgs }}" as="t" hint-placeholder-count="5">
+          <button onClick="{{ t.onClick }}" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;padding:0">
+            <span style="width:52px;height:52px;border-radius:50%;background:{{ t.color }};display:grid;place-items:center;color:var(--color-text);box-shadow:{{ t.ring }}"><sc-if value="{{ t.on }}"><i class="icon-check" style="font-size:22px"></i></sc-if></span>
+            <span style="font-size:12px;font-weight:600">{{ t.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ L.accent }}</span>
+      <div style="border-radius:28px;background:var(--color-surface);padding:18px 12px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px">
+        <sc-for list="{{ themes }}" as="t" hint-placeholder-count="5">
+          <button onClick="{{ t.onClick }}" style="border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;padding:0">
+            <span style="width:52px;height:52px;border-radius:50%;background:{{ t.color }};display:grid;place-items:center;color:var(--color-bg);box-shadow:{{ t.ring }}"><sc-if value="{{ t.on }}"><i class="icon-check" style="font-size:22px"></i></sc-if></span>
+            <span style="font-size:12px;font-weight:600">{{ t.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ L.homeBg }}</span>
+      <div style="border-radius:28px;background:var(--color-surface);padding:14px;display:flex;flex-direction:column;gap:14px">
+        <div style="height:190px;border-radius:22px;overflow:hidden;position:relative;background:repeating-linear-gradient(135deg, var(--color-neutral-200) 0 10px, var(--color-neutral-100) 10px 20px)">
+          <sc-if value="{{ previewPhoto }}" hint-placeholder-val="{{ false }}"><img src="{{ previewPhoto }}" class="washed" style="width:100%;height:100%;object-fit:cover"></img></sc-if>
+          <sc-if value="{{ noPreview }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;inset:0;display:grid;place-items:center;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--color-neutral-700)">your photo</span></sc-if>
+          <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:12px;top:12px;padding:4px 12px;border-radius:999px;background:var(--color-bg);font-size:12px;font-weight:700">{{ L.preview }}</span></sc-if>
+        </div>
+        <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px">
+            <button onClick="{{ confirmPhoto }}" style="flex:1;height:48px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-heading);font-size:16px;cursor:pointer" style-hover="background:var(--color-accent-600)"><i class="icon-check" style="font-size:17px"></i>{{ L.usePhoto }}</button>
+            <button onClick="{{ cancelPhoto }}" style="height:48px;padding:0 20px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:16px;cursor:pointer">{{ L.cancel }}</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noPending }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:8px">
+          <label style="height:46px;padding:0 18px;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-size:15px;cursor:pointer"><i class="icon-image" style="font-size:16px"></i>{{ photoBtn }}<input type="file" accept="image/*" onChange="{{ onPhoto }}" style="display:none"></input></label>
+          <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><button onClick="{{ removePhoto }}" style="height:46px;padding:0 18px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:15px;cursor:pointer">{{ L.remove }}</button></sc-if>
+        </div>
+        </sc-if>
+      </div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding-top:6px">
+          <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ L.panel }}</span>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);padding:4px;border-radius:999px;background:var(--color-surface)">
+            <sc-for list="{{ panelOpts }}" as="o" hint-placeholder-count="4">
+              <button onClick="{{ o.onClick }}" style="height:42px;border-radius:999px;border:0;background:{{ o.bg }};color:{{ o.fg }};font-weight:700;font-size:14px;cursor:pointer">{{ o.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      <span style="font-size:12px;color:var(--color-neutral-700);padding:0 8px">{{ L.panelNote }}</span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.widgets }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:70px 24px 30px;display:flex;flex-direction:column;gap:22px;background:var(--color-accent-2-300)">
+  <div style="display:grid;grid-template-columns:158px 1fr;gap:22px">
+    <button onClick="{{ widgetAdd }}" style="height:158px;border-radius:26px;border:0;background:var(--color-bg);padding:14px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;cursor:pointer;box-shadow:var(--shadow-md)">
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;color:var(--color-neutral-700)">{{ L.widgetTitle }}</span><span style="font-family:var(--font-heading);font-size:26px;line-height:1.05;font-variant-numeric:tabular-nums">{{ widgetSpent }}</span><span style="font-size:12px;color:var(--color-neutral-700)">{{ L.spentLower }}</span></div>
+      <span style="height:40px;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;justify-content:center;gap:6px;font-family:var(--font-heading);font-size:15px"><i class="icon-plus" style="font-size:16px"></i>{{ L.addEntry }}</span>
+    </button>
+    <div style="display:grid;grid-template-columns:repeat(2,60px);gap:20px 26px;justify-content:end">
+      <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+      <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+      <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+      <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+    </div>
+  </div>
+  <div style="height:158px;border-radius:26px;background:var(--color-bg);padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;box-shadow:var(--shadow-md)">
+    <button onClick="{{ widgetAdd }}" style="border-radius:20px;border:0;background:var(--color-accent);color:var(--color-bg);display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:14px;cursor:pointer;text-align:left">
+      <i class="icon-plus" style="font-size:26px"></i><span style="font-family:var(--font-heading);font-size:20px;line-height:1.1">{{ L.addEntry }}</span>
+    </button>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <sc-for list="{{ widgetShortcuts }}" as="w" hint-placeholder-count="3">
+        <button onClick="{{ w.onClick }}" style="flex:1;border-radius:999px;border:0;background:var(--color-surface);display:flex;align-items:center;gap:8px;padding:0 12px;cursor:pointer;font-weight:700;font-size:14px"><i class="{{ w.icon }}" style="font-size:16px;color:var(--color-accent-700)"></i>{{ w.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between">
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <span style="font-size:12px;font-weight:600;color:var(--color-accent-2-900)">{{ controlLabel }}</span>
+    <button onClick="{{ widgetAdd }}" style="width:64px;height:64px;border-radius:50%;border:0;background:color-mix(in srgb, var(--color-neutral-900) 70%, transparent);color:var(--color-bg);display:grid;place-items:center;cursor:pointer"><i class="icon-circle-plus" style="font-size:28px"></i></button>
+  </div>
+  <div style="border-radius:32px;background:color-mix(in srgb, var(--color-neutral-100) 35%, transparent);padding:14px 18px;display:flex;justify-content:space-between;align-items:center">
+    <button onClick="{{ goHome }}" style="width:60px;height:60px;border-radius:16px;border:0;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;cursor:pointer;font-family:var(--font-heading);font-size:28px">+</button>
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+    <span style="width:60px;height:60px;border-radius:16px;background:color-mix(in srgb, var(--color-neutral-100) 55%, transparent)"></span>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.reorder }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L2.arrange }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 18px;display:flex;flex-direction:column;gap:20px">
+    <span style="font-size:14px;line-height:1.5;color:var(--color-neutral-800);padding:0 6px;text-wrap:pretty">{{ L2.arrangeNote }}</span>
+    <sc-for list="{{ reorderSections }}" as="sec" hint-placeholder-count="2">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 6px">{{ sec.title }}</span>
+        <sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="2">
+          <div draggable="true" onDragStart="{{ r.onDragStart }}" onDragOver="{{ r.onDragOver }}" onDrop="{{ r.onDrop }}" onDragEnd="{{ r.onDragEnd }}" style="display:flex;align-items:center;gap:10px;min-height:60px;padding:0 6px 0 14px;border-radius:999px;background:{{ r.bg }};border:1.5px solid color-mix(in srgb, #ffffff 60%, transparent);box-shadow:{{ r.shadow }};transform:{{ r.tf }};cursor:grab">
+            <i class="icon-grip-vertical" style="font-size:18px;color:var(--color-neutral-600)"></i>
+            <sc-if value="{{ r.shared }}"><i class="icon-users" style="font-size:15px;color:var(--color-accent-2-700)"></i></sc-if>
+            <span style="flex:1;font-weight:600;font-size:15px">{{ r.name }}</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--color-neutral-700)">{{ r.cur }}</span>
+            <button onClick="{{ r.onStar }}" aria-label="Pin" style="width:44px;height:44px;border-radius:50%;border:0;background:transparent;font-size:20px;color:{{ r.starColor }};cursor:pointer">{{ r.star }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.recurring }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L2.recurring }}</span>
+    <button onClick="{{ goRecNew }}" aria-label="Add" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;cursor:pointer" style-hover="background:var(--color-accent-600)"><i class="icon-plus" style="font-size:20px"></i></button>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 14px 16px;display:flex;flex-direction:column;gap:10px">
+    <div style="border-radius:30px;background:var(--color-accent-2-200);padding:20px 22px;display:flex;flex-direction:column;gap:6px;color:var(--color-accent-2-900)">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{ L2.fixedCosts }}</span>
+      <span style="font-family:var(--font-heading);font-size:36px;line-height:1.05">{{ recTotal }}</span>
+      <span style="font-size:13px;line-height:1.45;text-wrap:pretty">{{ recTotalSub }}</span>
+    </div>
+    <sc-for list="{{ recSections }}" as="sec" hint-placeholder-count="3">
+      <div style="display:flex;flex-direction:column">
+        <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:12px 10px 0">{{ sec.title }}</span>
+        <sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="2">
+          <div onClick="{{ r.onClick }}" style="display:flex;align-items:center;gap:12px;padding:8px 18px 8px 8px;min-height:58px;margin-top:8px;border-radius:999px;background:var(--color-neutral-100);border:1.5px solid color-mix(in srgb, #ffffff 60%, transparent);box-shadow:var(--shadow-sm);cursor:pointer">
+            <div style="width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:{{ r.iconBg }};color:{{ r.iconFg }};flex:none"><i class="{{ r.icon }}" style="font-size:19px"></i></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+              <span style="font-size:12.5px;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+              <span style="font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">{{ r.amt }}</span>
+              <sc-if value="{{ r.hasDots }}"><div style="display:flex;gap:4px"><sc-for list="{{ r.dots }}" as="d"><span style="width:8px;height:8px;border-radius:50%;background:{{ d.bg }}"></span></sc-for></div></sc-if>
+              <sc-if value="{{ r.tag }}"><span style="font-size:11px;padding:2px 8px;border-radius:999px;background:var(--color-neutral-200);color:var(--color-neutral-800);font-weight:600">{{ r.tag }}</span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.recNew }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="icon-x" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L2.newRec }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:6px 18px 10px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);padding:4px;border-radius:999px;background:var(--color-surface)">
+      <sc-for list="{{ rn.tpls }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onClick }}" style="height:42px;border-radius:999px;border:0;background:{{ o.bg }};color:{{ o.fg }};font-weight:700;font-size:14px;cursor:pointer">{{ o.label }}</button></sc-for>
+    </div>
+    <sc-if value="{{ rn.isReg }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700);padding:0 6px">{{ L2.quickPick }}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <sc-for list="{{ rn.presets }}" as="p" hint-placeholder-count="5">
+            <button onClick="{{ p.onClick }}" style="height:40px;padding:0 14px 0 10px;border-radius:999px;border:1px solid {{ p.border }};background:{{ p.bg }};display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600"><i class="{{ p.icon }}" style="font-size:15px;color:var(--color-accent-700)"></i>{{ p.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ rn.isSplit }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;min-height:56px;padding:0 16px;border-radius:24px;background:var(--color-accent-2-200);color:var(--color-accent-2-900)">
+        <i class="icon-users" style="font-size:18px"></i>
+        <span style="flex:1;font-weight:700;font-size:15px">{{ rn.splitLedger }}</span>
+        <div style="display:flex"><sc-for list="{{ rn.shares }}" as="p"><span style="width:28px;height:28px;border-radius:50%;background:{{ p.av }};display:grid;place-items:center;font-size:11px;font-weight:700;margin-left:-6px;border:2px solid var(--color-accent-2-200)">{{ p.initial }}</span></sc-for></div>
+      </div>
+    </sc-if>
+    <label style="min-height:56px;padding:0 18px;border-radius:999px;background:var(--color-surface);display:flex;align-items:center;gap:12px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700);width:64px;flex:none">{{ L2.name }}</span>
+      <input value="{{ rn.name }}" onChange="{{ rn.onName }}" style="flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:16px;font-weight:600;color:var(--color-text);outline:none"></input>
+    </label>
+    <label style="min-height:64px;padding:0 18px;border-radius:999px;background:var(--color-surface);display:flex;align-items:center;gap:12px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700);width:64px;flex:none">{{ rn.amtLabel }}</span>
+      <span style="font-family:var(--font-heading);font-size:22px;color:var(--color-neutral-600)">$</span>
+      <input value="{{ rn.amt }}" onChange="{{ rn.onAmt }}" inputMode="decimal" style="flex:1;min-width:0;border:0;background:transparent;font-family:var(--font-heading);font-size:26px;color:var(--color-text);outline:none;font-variant-numeric:tabular-nums"></input>
+    </label>
+    <sc-if value="{{ rn.notAp }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700);padding:0 6px">{{ L2.repeats }}</span>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);padding:4px;border-radius:999px;background:var(--color-surface)">
+          <sc-for list="{{ rn.freqs }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.onClick }}" style="height:40px;border-radius:999px;border:0;background:{{ o.bg }};color:{{ o.fg }};font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">{{ o.label }}</button></sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span style="font-size:13px;font-weight:600;color:var(--color-neutral-700);padding:0 6px">{{ L2.category }}</span>
+      <div class="noscroll" style="display:flex;gap:10px;overflow-x:auto;scrollbar-width:none">
+        <sc-for list="{{ rn.cats }}" as="c" hint-placeholder-count="5">
+          <button onClick="{{ c.onClick }}" style="flex:none;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:0;width:66px">
+            <span style="width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:{{ c.bg }};color:{{ c.fg }}"><i class="{{ c.icon }}" style="font-size:21px"></i></span>
+            <span style="font-size:12px;text-align:center;line-height:1.2">{{ c.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="border-radius:28px;background:var(--color-surface);display:flex;flex-direction:column;padding:4px 18px">
+      <sc-for list="{{ rn.rows }}" as="r" hint-placeholder-count="2">
+        <div style="display:flex;align-items:center;gap:10px;min-height:52px;border-bottom:1px solid var(--color-divider)"><span style="flex:1;font-size:15px;color:var(--color-neutral-800)">{{ r.label }}</span><b style="font-size:15px">{{ r.value }}</b><i class="icon-chevron-right" style="font-size:16px;color:var(--color-neutral-600)"></i></div>
+      </sc-for>
+      <div style="display:flex;align-items:center;gap:10px;min-height:62px">
+        <div style="flex:1;display:flex;flex-direction:column"><span style="font-size:15px">{{ L2.remind }}</span><span style="font-size:12px;color:var(--color-neutral-700)">{{ rn.remindSub }}</span></div>
+        <button onClick="{{ rn.onRemind }}" aria-label="{{ L2.remind }}" style="width:52px;height:32px;border-radius:999px;border:0;padding:3px;display:flex;justify-content:{{ rn.tgJustify }};background:{{ rn.tgBg }};cursor:pointer;flex:none"><span style="width:26px;height:26px;border-radius:50%;background:var(--color-bg);box-shadow:var(--shadow-sm)"></span></button>
+      </div>
+    </div>
+    <sc-if value="{{ rn.isAp }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:28px;background:var(--color-neutral-100);border:1.5px solid color-mix(in srgb, #ffffff 60%, transparent);box-shadow:var(--shadow-sm);padding:16px 18px;display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:6px"><span style="flex:1;font-weight:700;font-size:15px">{{ L2.apPlan }}</span><span style="padding:3px 10px;border-radius:999px;background:var(--color-accent-100);color:var(--color-accent-800);font-size:12px;font-weight:700">Afterpay</span></div>
+        <sc-for list="{{ rn.sched }}" as="s" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:10px;min-height:40px">
+            <span style="width:26px;height:26px;border-radius:50%;background:{{ s.dotBg }};color:{{ s.dotFg }};display:grid;place-items:center;font-size:12px;font-weight:700">{{ s.i }}</span>
+            <span style="flex:1;font-size:14px">{{ s.date }}</span>
+            <span style="font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">{{ s.amt }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ rn.isSplit }}" hint-placeholder-val="{{ false }}">
+      <div style="border-radius:28px;background:var(--color-surface);padding:14px 18px;display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;padding-bottom:4px"><span style="flex:1;font-size:15px;color:var(--color-neutral-800)">{{ L.shares }}</span><b style="font-size:15px">{{ L.splitEqually }}</b></div>
+        <sc-for list="{{ rn.shares }}" as="s" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;min-height:40px">
+            <span style="width:26px;height:26px;border-radius:50%;background:{{ s.av }};display:grid;place-items:center;font-size:11px;font-weight:700">{{ s.initial }}</span>
+            <span style="flex:1;font-size:14px">{{ s.name }}</span>
+            <span style="font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;padding:6px 12px;border-radius:999px;background:var(--color-bg)">{{ s.amt }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <span style="font-size:13px;line-height:1.5;color:var(--color-neutral-700);padding:0 6px;text-wrap:pretty">{{ rn.note }}</span>
+  </div>
+  <div style="padding:10px 16px 6px">
+    <button onClick="{{ rn.save }}" style="width:100%;height:60px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:21px;cursor:pointer;box-shadow:var(--shadow-md)" style-hover="background:var(--color-accent-600)">{{ L2.saveRec }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.notif }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:70px 14px 30px;display:flex;flex-direction:column;gap:10px;background:var(--color-accent-2-300)">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 30px;color:var(--color-accent-2-900)">
+    <span style="font-size:17px;font-weight:600">{{ L2.lockDate }}</span>
+    <span style="font-family:var(--font-heading);font-size:92px;line-height:1">9:41</span>
+  </div>
+  <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="2">
+    <div onClick="{{ n.onClick }}" style="border-radius:26px;background:color-mix(in srgb, var(--color-neutral-100) 85%, transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:14px 16px;display:flex;flex-direction:column;gap:12px;cursor:pointer;box-shadow:var(--shadow-sm)">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <span style="width:38px;height:38px;border-radius:11px;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;flex:none"><i class="{{ n.icon }}" style="font-size:19px"></i></span>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:baseline;gap:8px"><b style="flex:1;font-size:15px">{{ n.title }}</b><span style="font-size:12px;color:var(--color-neutral-700)">{{ n.time }}</span></div>
+          <span style="font-size:14px;line-height:1.4;color:var(--color-neutral-800);text-wrap:pretty">{{ n.body }}</span>
+        </div>
+      </div>
+      <sc-if value="{{ n.hasActions }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <sc-for list="{{ n.actions }}" as="a"><button onClick="{{ a.onClick }}" style="height:44px;border-radius:999px;border:0;background:var(--color-bg);color:{{ a.fg }};font-weight:700;font-size:14px;cursor:pointer">{{ a.label }}</button></sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.banks }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L2.banks }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 14px 16px;display:flex;flex-direction:column;gap:14px">
+    <span style="font-size:14px;line-height:1.5;color:var(--color-neutral-800);padding:0 8px;text-wrap:pretty">{{ L2.banksNote }}</span>
+    <sc-for list="{{ bankRows }}" as="b" hint-placeholder-count="2">
+      <div style="border-radius:32px;background:var(--color-neutral-100);border:1.5px solid color-mix(in srgb, #ffffff 60%, transparent);box-shadow:var(--shadow-sm);padding:18px 16px 16px 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:40px;height:40px;border-radius:50%;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;flex:none"><i class="icon-landmark" style="font-size:18px"></i></span>
+          <span style="flex:1;font-weight:700;font-size:16px">{{ b.name }}</span>
+          <span style="padding:3px 10px;border-radius:999px;background:var(--color-surface);font-size:12px;font-weight:700;letter-spacing:.04em">{{ b.cur }}</span>
+        </div>
+        <span style="font-family:var(--font-heading);font-size:34px;line-height:1;font-variant-numeric:tabular-nums">{{ b.bal }}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:12.5px;color:var(--color-neutral-700)">{{ b.upd }}</span>
+            <sc-if value="{{ b.gap }}"><span style="font-size:12.5px;font-weight:700;color:var(--color-accent-700)">{{ b.gap }}</span></sc-if>
+          </div>
+          <button onClick="{{ b.onUpdate }}" style="height:44px;padding:0 18px;border-radius:999px;border:0;background:{{ b.btnBg }};color:{{ b.btnFg }};font-family:var(--font-heading);font-size:15px;cursor:pointer">{{ L2.update }}</button>
+        </div>
+      </div>
+    </sc-for>
+    <button onClick="{{ addBank }}" style="align-self:flex-start;height:46px;padding:0 18px;border-radius:999px;border:1px dashed var(--color-neutral-500);background:transparent;display:flex;align-items:center;gap:8px;font-family:var(--font-heading);font-size:15px;cursor:pointer"><i class="icon-plus" style="font-size:16px"></i>{{ L2.addBank }}</button>
+    <div style="display:flex;flex-direction:column;gap:8px;padding-top:8px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:0 8px">{{ L2.remindUpdate }}</span>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);padding:4px;border-radius:999px;background:var(--color-surface)">
+        <sc-for list="{{ bankFreqs }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onClick }}" style="height:42px;border-radius:999px;border:0;background:{{ o.bg }};color:{{ o.fg }};font-weight:700;font-size:14px;cursor:pointer">{{ o.label }}</button></sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.monthly }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:54px 0 30px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 12px 8px;min-height:52px">
+    <button onClick="{{ goBack }}" style="width:44px;height:44px;border-radius:50%;border:0;background:var(--color-surface);display:grid;place-items:center;cursor:pointer"><i class="{{ backIcon }}" style="font-size:20px"></i></button>
+    <span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:20px">{{ L2.monthly }}</span>
+    <span style="width:44px"></span>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 14px 16px;display:flex;flex-direction:column;gap:14px">
+    <div style="padding:6px 8px 4px;display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+      <span style="font-size:13px;color:var(--color-neutral-700)">{{ mc.kicker }}</span>
+      <span style="font-family:var(--font-heading);font-size:50px;line-height:1;font-variant-numeric:tabular-nums">{{ mc.total }}</span>
+      <span style="padding:6px 14px;border-radius:999px;background:{{ mc.deltaBg }};color:{{ mc.deltaFg }};font-size:13px;font-weight:700">{{ mc.delta }}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <sc-for list="{{ mc.cards }}" as="k" hint-placeholder-count="2">
+        <button onClick="{{ k.onClick }}" style="border:0;text-align:left;border-radius:28px;background:{{ k.bg }};color:{{ k.fg }};padding:16px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-height:124px">
+          <i class="{{ k.icon }}" style="font-size:18px"></i>
+          <span style="font-family:var(--font-heading);font-size:24px;line-height:1.05">{{ k.value }}</span>
+          <span style="font-size:12.5px;line-height:1.4;text-wrap:pretty">{{ k.label }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 8px 2px">
+        <span style="flex:1;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700)">{{ L2.byCat }}</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600"><span style="width:10px;height:10px;border-radius:50%;background:var(--color-accent)"></span>{{ L2.thisM }}</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600"><span style="width:10px;height:10px;border-radius:50%;background:var(--color-neutral-400)"></span>{{ L2.lastM }}</span>
+      </div>
+      <sc-for list="{{ mc.rows }}" as="r" hint-placeholder-count="6">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 8px">
+          <span style="width:40px;height:40px;border-radius:50%;background:var(--color-accent-200);color:var(--color-accent-800);display:grid;place-items:center;flex:none"><i class="{{ r.icon }}" style="font-size:18px"></i></span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:baseline;gap:8px"><span style="flex:1;font-weight:600;font-size:15px">{{ r.label }}</span><span style="font-weight:700;font-size:15px;font-variant-numeric:tabular-nums">{{ r.amt }}</span></div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div style="height:8px;border-radius:999px;background:var(--color-accent);width:{{ r.w1 }}"></div>
+              <div style="height:8px;border-radius:999px;background:var(--color-neutral-400);width:{{ r.w2 }}"></div>
+            </div>
+            <span style="font-size:12px;font-weight:600;color:{{ r.dFg }}">{{ r.delta }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.sheet }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:color-mix(in srgb, var(--color-neutral-900) 45%, transparent);z-index:20"></div>
+</sc-if>
+
+<sc-if value="{{ show.currency }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;top:110px;z-index:21;border-radius:34px 34px 0 0;background:var(--color-bg);padding:10px 0 30px;display:flex;flex-direction:column">
+  <span style="width:40px;height:5px;border-radius:3px;background:var(--color-neutral-400);align-self:center"></span>
+  <div style="display:flex;align-items:center;padding:12px 14px 10px 22px"><span style="flex:1;font-family:var(--font-heading);font-size:24px">{{ L.currency }}</span><button onClick="{{ closeOverlay }}" style="height:44px;padding:0 14px;border-radius:999px;border:0;background:transparent;color:var(--color-accent-700);font-family:var(--font-heading);font-size:16px;cursor:pointer">{{ L.done }}</button></div>
+  <div style="margin:0 18px 8px;height:48px;border-radius:999px;background:var(--color-surface);display:flex;align-items:center;gap:8px;padding:0 16px">
+    <i class="icon-search" style="font-size:17px;color:var(--color-neutral-700)"></i>
+    <input value="{{ q }}" onChange="{{ onQ }}" placeholder="{{ L.search }}" style="flex:1;border:0;background:transparent;font:inherit;font-size:15px;color:var(--color-text);outline:none"></input>
+  </div>
+  <div class="noscroll" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:0 8px">
+    <sc-for list="{{ curSections }}" as="sec" hint-placeholder-count="2">
+      <div style="display:flex;flex-direction:column;padding-top:10px">
+        <span style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-neutral-700);padding:4px 14px">{{ sec.title }}</span>
+        <sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="4">
+          <div onClick="{{ r.onClick }}" style="display:flex;align-items:center;gap:12px;min-height:52px;padding:0 4px 0 14px;border-radius:20px;background:{{ r.bg }};cursor:pointer">
+            <b style="width:44px;font-size:15px;letter-spacing:.03em">{{ r.code }}</b>
+            <span style="flex:1;font-size:14px;color:var(--color-neutral-800)">{{ r.name }}</span>
+            <sc-if value="{{ r.selected }}"><i class="icon-check" style="font-size:18px;color:var(--color-accent-700)"></i></sc-if>
+            <button onClick="{{ r.onStar }}" style="width:44px;height:44px;border:0;background:transparent;font-size:19px;color:{{ r.starColor }};cursor:pointer">{{ r.star }}</button>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.catNote }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:21;border-radius:34px 34px 0 0;background:var(--color-bg);padding:10px 18px 40px;display:flex;flex-direction:column;gap:14px">
+  <span style="width:40px;height:5px;border-radius:3px;background:var(--color-neutral-400);align-self:center"></span>
+  <div style="display:flex;align-items:center;gap:14px;padding:8px 4px 0">
+    <span style="width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:{{ pick.bg }};color:{{ pick.fg }};flex:none"><i class="{{ pick.icon }}" style="font-size:24px"></i></span>
+    <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+      <span style="font-family:var(--font-heading);font-size:24px;line-height:1.1">{{ pick.label }}</span>
+      <span style="font-size:13px;color:var(--color-neutral-700)">{{ ledgerLabel }}</span>
+    </div>
+    <span style="font-family:var(--font-heading);font-size:26px;font-variant-numeric:tabular-nums">{{ amtFull }}</span>
+  </div>
+  <label style="min-height:56px;padding:0 18px;border-radius:999px;background:var(--color-surface);display:flex;align-items:center;gap:10px;border:2px solid var(--color-accent)">
+    <i class="icon-sticky-note" style="font-size:17px;color:var(--color-neutral-700)"></i>
+    <input value="{{ note }}" onChange="{{ onNote }}" placeholder="{{ L.notePh }}" autoFocus="{{ isI }}" style="flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:16px;color:var(--color-text);outline:none"></input>
+  </label>
+  <div style="display:flex;gap:8px">
+    <button onClick="{{ toggleDate }}" style="height:44px;padding:0 14px 0 16px;border-radius:999px;border:0;background:{{ dateChipBg }};color:{{ dateChipFg }};display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;cursor:pointer"><i class="icon-calendar" style="font-size:16px"></i>{{ dateChip }}<i class="icon-chevron-down" style="font-size:14px"></i></button>
+    <button onClick="{{ closeOverlay }}" style="height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-size:14px;font-weight:600;cursor:pointer">{{ L.changeCat }}</button>
+  </div>
+  <sc-if value="{{ dateOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="border-radius:28px;background:var(--color-surface);padding:14px 12px 12px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:6px;padding:0 4px">
+        <sc-for list="{{ quickDays }}" as="q">
+          <button onClick="{{ q.onClick }}" style="height:36px;padding:0 14px;border-radius:999px;border:0;background:{{ q.bg }};color:{{ q.fg }};font-size:13px;font-weight:700;cursor:pointer">{{ q.label }}</button>
+        </sc-for>
+        <span style="flex:1;text-align:right;align-self:center;font-family:var(--font-heading);font-size:16px">{{ L.monthShort }}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
+        <sc-for list="{{ weekHead }}" as="w"><span style="font-size:11px;font-weight:700;color:var(--color-neutral-700);padding:4px 0">{{ w }}</span></sc-for>
+        <sc-for list="{{ calDays }}" as="c" hint-placeholder-count="35">
+          <button onClick="{{ c.onClick }}" style="height:36px;border-radius:999px;border:0;background:{{ c.bg }};color:{{ c.fg }};font-size:14px;font-weight:600;cursor:pointer;opacity:{{ c.op }};font-variant-numeric:tabular-nums">{{ c.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <button onClick="{{ savePick }}" style="height:58px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:20px;cursor:pointer;box-shadow:var(--shadow-md)" style-hover="background:var(--color-accent-600)">{{ L.save }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.route }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:21;border-radius:34px 34px 0 0;background:var(--color-bg);padding:10px 14px 40px;display:flex;flex-direction:column;gap:6px">
+  <span style="width:40px;height:5px;border-radius:3px;background:var(--color-neutral-400);align-self:center"></span>
+  <span style="font-family:var(--font-heading);font-size:24px;padding:12px 8px 0">{{ routeTitle }}</span>
+  <span style="font-size:13px;color:var(--color-neutral-700);padding:0 8px 8px">{{ L.routeSub }}</span>
+  <sc-for list="{{ routeRows }}" as="r" hint-placeholder-count="2">
+    <button onClick="{{ r.onClick }}" style="min-height:62px;padding:0 16px;border-radius:24px;border:0;background:{{ r.bg }};display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left">
+      <i class="icon-book-open" style="font-size:18px;color:var(--color-accent-700)"></i>
+      <span style="flex:1;font-weight:700;font-size:16px">{{ r.label }}</span>
+      <sc-if value="{{ r.tag }}"><span style="padding:3px 10px;border-radius:999px;background:var(--color-accent-100);color:var(--color-accent-800);font-size:12px;font-weight:600">{{ r.tag }}</span></sc-if>
+    </button>
+  </sc-for>
+  <button onClick="{{ routeNew }}" style="min-height:56px;padding:0 16px;border-radius:24px;border:1px dashed var(--color-neutral-500);background:transparent;display:flex;align-items:center;gap:12px;cursor:pointer;font-size:15px;margin-top:4px"><i class="icon-plus" style="font-size:18px"></i>{{ routeNewLabel }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.routeNone }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:20px;right:20px;top:250px;z-index:21;border-radius:34px;background:var(--color-surface);box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:12px">
+  <span style="width:52px;height:52px;border-radius:50%;background:var(--color-accent-200);color:var(--color-accent-800);display:grid;place-items:center"><i class="icon-book-plus" style="font-size:24px"></i></span>
+  <span style="font-family:var(--font-heading);font-size:24px;line-height:1.15">{{ L.noLedger }}</span>
+  <span style="font-size:14px;color:var(--color-neutral-800)">{{ L.comeBack }}</span>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+    <button onClick="{{ closeOverlay }}" style="height:46px;padding:0 18px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:15px;cursor:pointer">{{ L.notNow }}</button>
+    <button onClick="{{ routeNew }}" style="height:46px;padding:0 20px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:15px;cursor:pointer">{{ L.createCur }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.settle }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:21;border-radius:34px 34px 0 0;background:var(--color-bg);padding:10px 22px 40px;display:flex;flex-direction:column;gap:14px">
+  <span style="width:40px;height:5px;border-radius:3px;background:var(--color-neutral-400);align-self:center"></span>
+  <span style="font-family:var(--font-heading);font-size:24px;padding-top:8px">{{ L.settleUp }}</span>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <sc-for list="{{ settle.opts }}" as="o" hint-placeholder-count="2">
+      <button onClick="{{ o.onClick }}" style="height:44px;padding:0 14px 0 7px;border-radius:999px;border:1px solid {{ o.border }};background:{{ o.bg }};display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600">
+        <span style="width:30px;height:30px;border-radius:50%;background:{{ o.av }};display:grid;place-items:center;font-size:12px;font-weight:700">{{ o.initial }}</span>{{ o.label }}
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="width:40px;height:40px;border-radius:50%;background:{{ settle.fromAv }};display:grid;place-items:center;font-weight:700">{{ settle.fromI }}</span>
+    <i class="icon-arrow-right" style="font-size:18px;color:var(--color-neutral-600)"></i>
+    <span style="width:40px;height:40px;border-radius:50%;background:{{ settle.toAv }};display:grid;place-items:center;font-weight:700">{{ settle.toI }}</span>
+    <span style="font-size:16px;font-weight:600">{{ settle.line }}</span>
+    <sc-if value="{{ settle.proxy }}"><span style="padding:3px 10px;border-radius:999px;background:var(--color-accent-2-100);color:var(--color-accent-2-800);font-size:12px;font-weight:600">{{ settle.proxy }}</span></sc-if>
+  </div>
+  <div style="height:76px;border-radius:28px;background:var(--color-surface);display:flex;align-items:center;padding:0 10px 0 22px;gap:6px;font-family:var(--font-heading)">
+    <span style="font-size:30px;color:var(--color-neutral-600)">{{ settle.sym }}</span>
+    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;font-size:44px;font-variant-numeric:tabular-nums;line-height:1">
+      <span style="color:{{ settle.amtColor }}">{{ settle.amtText }}</span>
+      <span style="width:3px;height:40px;border-radius:2px;background:var(--color-accent)"></span>
+    </div>
+    <button onClick="{{ settle.onFull }}" style="flex:none;height:44px;padding:0 14px;border-radius:999px;border:1px solid {{ settle.fullBorder }};background:{{ settle.fullBg }};color:{{ settle.fullFg }};font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer">{{ settle.fullLabel }}</button>
+  </div>
+  <sc-if value="{{ settle.left }}"><span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">{{ settle.left }}</span></sc-if>
+  <span style="font-size:13px;color:var(--color-neutral-700);text-wrap:pretty">{{ settle.body }}</span>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+    <sc-for list="{{ settle.keys }}" as="k" hint-placeholder-count="12">
+      <button onClick="{{ k.onClick }}" style="height:50px;border-radius:18px;border:0;background:transparent;font-family:var(--font-heading);font-size:26px;display:grid;place-items:center;cursor:pointer" style-hover="background:var(--color-surface)" style-active="background:var(--color-neutral-300)"><sc-if value="{{ k.isDel }}"><i class="icon-delete" style="font-size:22px"></i></sc-if><sc-if value="{{ k.isTxt }}"><span>{{ k.k }}</span></sc-if></button>
+    </sc-for>
+  </div>
+  <button onClick="{{ confirmSettle }}" style="opacity:{{ settle.btnOp }};height:58px;border-radius:999px;border:0;background:var(--color-accent-2);color:var(--color-bg);font-family:var(--font-heading);font-size:19px;cursor:pointer" style-hover="background:var(--color-accent-2-600)">{{ settle.btn }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.end }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:18px;right:18px;top:200px;z-index:21;border-radius:34px;background:var(--color-surface);box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:12px">
+  <span style="font-family:var(--font-heading);font-size:24px">{{ L.endTitle }}</span>
+  <span style="font-size:14px;color:var(--color-neutral-800)">{{ L.endBody1 }}<b>¥18,400</b>{{ L.endBody2 }}<b>{{ L.yenWallet }} · JPY</b>{{ L.endBody3 }}</span>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+    <button onClick="{{ endAdd }}" style="height:52px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:17px;cursor:pointer" style-hover="background:var(--color-accent-600)">{{ L.addAndEnd }}</button>
+    <button onClick="{{ endOnly }}" style="height:52px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:17px;cursor:pointer">{{ L.endOnly }}</button>
+    <button onClick="{{ closeOverlay }}" style="height:44px;border-radius:999px;border:0;background:transparent;color:var(--color-accent-700);font-family:var(--font-heading);font-size:15px;cursor:pointer">{{ L.cancel }}</button>
+  </div>
+  <span style="font-size:12px;color:var(--color-neutral-700)">{{ L.endedNote }}</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.menu }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;right:14px;top:108px;width:272px;z-index:21;border-radius:28px;background:var(--color-bg);box-shadow:var(--shadow-lg);padding:8px;display:flex;flex-direction:column">
+  <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="7">
+    <button onClick="{{ m.onClick }}" style="min-height:52px;padding:6px 14px;border:0;border-radius:20px;background:transparent;display:flex;align-items:center;gap:12px;cursor:pointer;text-align:left" style-hover="background:var(--color-surface)">
+      <i class="{{ m.icon }}" style="font-size:18px;color:var(--color-accent-700)"></i>
+      <div style="flex:1;display:flex;flex-direction:column"><span style="font-size:15px;font-weight:600">{{ m.label }}</span><sc-if value="{{ m.sub }}"><span style="font-size:12px;color:{{ m.subFg }}">{{ m.sub }}</span></sc-if></div>
+    </button>
+  </sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.chargeEdit }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:21;border-radius:34px 34px 0 0;background:var(--color-bg);padding:10px 22px 40px;display:flex;flex-direction:column;gap:14px">
+  <span style="width:40px;height:5px;border-radius:3px;background:var(--color-neutral-400);align-self:center"></span>
+  <div style="display:flex;align-items:center;gap:14px;padding-top:8px">
+    <span style="width:56px;height:56px;border-radius:50%;background:var(--color-accent-200);color:var(--color-accent-800);display:grid;place-items:center;flex:none"><i class="icon-repeat" style="font-size:24px"></i></span>
+    <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-family:var(--font-heading);font-size:24px;line-height:1.1">Netflix</span><span style="font-size:13px;color:var(--color-neutral-700)">{{ L2.ceSub }}</span></div>
+  </div>
+  <label style="height:76px;border-radius:28px;background:var(--color-surface);display:flex;align-items:center;padding:0 22px;gap:6px;border:2px solid var(--color-accent)">
+    <span style="font-family:var(--font-heading);font-size:30px;color:var(--color-neutral-600)">$</span>
+    <input value="{{ ce.amt }}" onChange="{{ ce.onAmt }}" inputMode="decimal" style="flex:1;min-width:0;border:0;background:transparent;font-family:var(--font-heading);font-size:44px;color:var(--color-text);outline:none;font-variant-numeric:tabular-nums"></input>
+  </label>
+  <span style="font-size:13px;line-height:1.5;color:var(--color-neutral-700);text-wrap:pretty">{{ L2.ceNote }}</span>
+  <button onClick="{{ ce.save }}" style="height:58px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:20px;cursor:pointer;box-shadow:var(--shadow-md)" style-hover="background:var(--color-accent-600)">{{ L2.saveChange }}</button>
+  <div style="display:flex;gap:8px">
+    <button onClick="{{ ce.del }}" style="flex:1;height:50px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;color:oklch(0.52 0.17 27);display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-heading);font-size:16px;cursor:pointer"><i class="icon-trash-2" style="font-size:16px"></i>{{ L2.deleteCharge }}</button>
+    <button onClick="{{ ce.editRec }}" style="flex:1;height:50px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:16px;cursor:pointer">{{ L2.editRec }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.balUpd }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;bottom:0;z-index:21;border-radius:34px 34px 0 0;background:var(--color-bg);padding:10px 22px 40px;display:flex;flex-direction:column;gap:14px">
+  <span style="width:40px;height:5px;border-radius:3px;background:var(--color-neutral-400);align-self:center"></span>
+  <div style="display:flex;flex-direction:column;gap:4px;padding-top:8px"><span style="font-family:var(--font-heading);font-size:24px">{{ bu.title }}</span><span style="font-size:13px;color:var(--color-neutral-700)">{{ bu.last }}</span></div>
+  <div style="height:76px;border-radius:28px;background:var(--color-surface);display:flex;align-items:center;padding:0 22px;gap:6px;font-family:var(--font-heading)">
+    <span style="font-size:30px;color:var(--color-neutral-600)">{{ bu.sym }}</span>
+    <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px;font-size:44px;font-variant-numeric:tabular-nums;line-height:1">
+      <span style="color:{{ bu.amtColor }}">{{ bu.amtText }}</span>
+      <span style="width:3px;height:40px;border-radius:2px;background:var(--color-accent)"></span>
+    </div>
+  </div>
+  <span style="font-size:13px;color:var(--color-neutral-700)">{{ L2.balHint }}</span>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+    <sc-for list="{{ bu.keys }}" as="k" hint-placeholder-count="12">
+      <button onClick="{{ k.onClick }}" style="height:50px;border-radius:18px;border:0;background:transparent;font-family:var(--font-heading);font-size:26px;display:grid;place-items:center;cursor:pointer" style-hover="background:var(--color-surface)" style-active="background:var(--color-neutral-300)"><sc-if value="{{ k.isDel }}"><i class="icon-delete" style="font-size:22px"></i></sc-if><sc-if value="{{ k.isTxt }}"><span>{{ k.k }}</span></sc-if></button>
+    </sc-for>
+  </div>
+  <button onClick="{{ bu.check }}" style="opacity:{{ bu.btnOp }};height:58px;border-radius:999px;border:0;background:var(--color-accent-2);color:var(--color-bg);font-family:var(--font-heading);font-size:19px;cursor:pointer" style-hover="background:var(--color-accent-2-600)">{{ L2.check }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ show.recon }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:18px;right:18px;top:170px;z-index:21;border-radius:34px;background:var(--color-surface);box-shadow:var(--shadow-lg);padding:24px;display:flex;flex-direction:column;gap:14px">
+  <span style="width:52px;height:52px;border-radius:50%;background:var(--color-accent-200);color:var(--color-accent-800);display:grid;place-items:center"><i class="icon-scale" style="font-size:24px"></i></span>
+  <span style="font-family:var(--font-heading);font-size:26px;line-height:1.15">{{ rc.title }}</span>
+  <div style="border-radius:24px;background:var(--color-bg);padding:4px 16px;display:flex;flex-direction:column">
+    <sc-for list="{{ rc.rows }}" as="r" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;min-height:48px;gap:10px;border-top:{{ r.bt }}"><span style="flex:1;font-size:14px;color:var(--color-neutral-800)">{{ r.label }}</span><span style="font-weight:{{ r.fw }};font-size:{{ r.fs }};color:{{ r.vc }};font-variant-numeric:tabular-nums">{{ r.value }}</span></div>
+    </sc-for>
+  </div>
+  <span style="font-size:14px;line-height:1.5;color:var(--color-neutral-800);text-wrap:pretty">{{ rc.body }}</span>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <sc-if value="{{ rc.hasGap }}" hint-placeholder-val="{{ true }}"><button onClick="{{ rc.add }}" style="width:100%;height:52px;border-radius:999px;border:0;background:var(--color-accent);color:var(--color-bg);font-family:var(--font-heading);font-size:17px;cursor:pointer" style-hover="background:var(--color-accent-600)">{{ L2.addMissing }}</button></sc-if>
+    <button onClick="{{ rc.skip }}" style="height:52px;border-radius:999px;border:1px solid var(--color-divider);background:transparent;font-family:var(--font-heading);font-size:17px;cursor:pointer">{{ rc.skipLabel }}</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;left:50%;bottom:118px;transform:translateX(-50%);z-index:40;padding:12px 20px;border-radius:999px;background:var(--color-neutral-900);color:var(--color-neutral-100);font-size:14px;font-weight:600;white-space:nowrap;box-shadow:var(--shadow-lg)">{{ toast }}</div>
+</sc-if>
+
+<sc-if value="{{ ios }}" hint-placeholder-val="{{ true }}">
+  <div style="position:absolute;top:0;left:0;right:0;height:50px;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:4px 30px 0 40px;font-weight:700;font-size:16px;pointer-events:none;color:{{ statusFg }}">
+    <span>9:41</span>
+    <span style="position:absolute;left:50%;top:11px;transform:translateX(-50%);width:122px;height:35px;border-radius:20px;background:#000"></span>
+    <span style="display:flex;gap:6px;align-items:center"><i class="icon-signal" style="font-size:16px"></i><i class="icon-wifi" style="font-size:16px"></i><i class="icon-battery-full" style="font-size:20px"></i></span>
+  </div>
+  <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--color-text);z-index:30;pointer-events:none"></div>
+</sc-if>
+<sc-if value="{{ android }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;top:0;left:0;right:0;height:44px;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:6px 26px 0;font-weight:600;font-size:14px;pointer-events:none;color:{{ statusFg }}">
+    <span>9:41</span>
+    <span style="position:absolute;left:50%;top:12px;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;background:#000"></span>
+    <span style="display:flex;gap:5px;align-items:center"><i class="icon-wifi" style="font-size:15px"></i><i class="icon-signal" style="font-size:15px"></i><i class="icon-battery-full" style="font-size:18px"></i></span>
+  </div>
+  <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:108px;height:4px;border-radius:2px;background:var(--color-neutral-700);z-index:30;pointer-events:none"></div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:410,&quot;height&quot;:864},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;home-split&quot;,&quot;amount&quot;,&quot;currency&quot;,&quot;category&quot;,&quot;route&quot;,&quot;route-none&quot;,&quot;split&quot;,&quot;newledger&quot;,&quot;friends&quot;,&quot;settle&quot;,&quot;settle-ben&quot;,&quot;end&quot;,&quot;widgets&quot;,&quot;settings&quot;,&quot;appearance&quot;,&quot;photo-confirm&quot;,&quot;menu&quot;,&quot;reorder&quot;,&quot;recurring&quot;,&quot;recurring-new&quot;,&quot;recurring-afterpay&quot;,&quot;recurring-split&quot;,&quot;charge-notif&quot;,&quot;charge-edit&quot;,&quot;banks&quot;,&quot;balance-update&quot;,&quot;reconcile&quot;,&quot;monthly&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;platform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;ios&quot;,&quot;android&quot;],&quot;default&quot;:&quot;ios&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;zh&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;direction&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;,&quot;C&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;bg&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cream&quot;,&quot;butter&quot;,&quot;blush&quot;,&quot;mint&quot;,&quot;sky&quot;],&quot;default&quot;:&quot;cream&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;marigold&quot;,&quot;terracotta&quot;,&quot;rose&quot;,&quot;plum&quot;,&quot;sea&quot;],&quot;default&quot;:&quot;marigold&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;photo&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;panel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;100&quot;,&quot;60&quot;,&quot;20&quot;],&quot;default&quot;:&quot;100&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interactive&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const CUR={AUD:['$','Australian Dollar',2],JPY:['¥','Japanese Yen',0],TWD:['NT$','New Taiwan Dollar',2],NZD:['NZ$','New Zealand Dollar',2],USD:['US$','US Dollar',2],EUR:['€','Euro',2],GBP:['£','Pound Sterling',2],CAD:['C$','Canadian Dollar',2],CHF:['CHF ','Swiss Franc',2],CNY:['CN¥','Chinese Yuan',2],HKD:['HK$','Hong Kong Dollar',2],KRW:['₩','South Korean Won',0],SGD:['S$','Singapore Dollar',2],THB:['฿','Thai Baht',2],VND:['₫','Vietnamese Dong',0],AED:['AED ','UAE Dirham',2]};
+const ALL=Object.keys(CUR).sort();
+const EXP=[['dining','Dining','utensils'],['groceries','Groceries','shopping-cart'],['coffee','Coffee','coffee'],['transport','Transport','bus'],['rent','Rent','house'],['opal','Opal / Myki','tram-front'],['bond','Bond','key-round'],['bills','Bills','receipt'],['subs','Subscriptions','repeat'],['shopping','Shopping','shopping-bag'],['health','Health','heart-pulse'],['fun','Fun','film'],['travel','Travel','plane'],['housing','Stays','bed-double'],['gifts','Gifts','gift'],['other','Other','ellipsis']];
+const INC=[['salary','Salary','briefcase'],['bonus','Bonus','sparkles'],['taxrefund','Tax refund','receipt-text'],['super','Super','landmark'],['refund','Refund','rotate-ccw'],['interest','Interest','piggy-bank'],['sold','Sold','tag'],['other_in','Other','ellipsis']];
+const CAT={};EXP.forEach(c=>CAT[c[0]]={label:c[1],icon:'icon-'+c[2],inc:false});INC.forEach(c=>CAT[c[0]]={label:c[1],icon:'icon-'+c[2],inc:true});
+const ZH_CAT={rent:'房租',opal:'Opal/Myki',bond:'押金',subs:'訂閱',taxrefund:'退稅',super:'Super 退休金',dining:'餐飲',groceries:'日用品',transport:'交通',coffee:'咖啡',shopping:'購物',housing:'住宿',bills:'帳單',health:'醫療',fun:'娛樂',travel:'旅行',gifts:'禮物',other:'其他',salary:'薪資',bonus:'獎金',refund:'退款',interest:'利息',sold:'賣出',other_in:'其他'};
+const DATES_ZH={'25':'今天','24':'2026/10/24（五）','23':'2026/10/23（四）','22':'2026/10/22（三）','20':'2026/10/20（一）','19':'2026/10/19（日）'};
+const NAME_ZH={living:'生活',japan:'日本旅行',travel:'旅遊',flat:'合租',yen:'日圓錢包'};
+const NOTE_ZH={'Flat white':'澳白咖啡','Woolies':'Woolworths 買菜','Opal top-up':'Opal 卡加值','October pay':'十月薪水','Running shoes':'跑鞋','Thai with Sam':'和 Sam 吃泰式','Rent':'房租','Flights to Hobart':'飛荷巴特機票','Konbini snacks':'超商零食','Ramen dinner':'拉麵晚餐','Suica cards':'Suica 卡','Hotel refund':'飯店退款','Kyoto stay':'京都住宿','Electricity':'電費','Japan Trip · my share':'日本旅行 · 我的部分'};
+const CUR_ZH={AUD:'澳幣',JPY:'日圓',TWD:'新台幣',NZD:'紐西蘭幣',USD:'美元',EUR:'歐元',GBP:'英鎊',CAD:'加拿大幣',CHF:'瑞士法郎',CNY:'人民幣',HKD:'港幣',KRW:'韓元',SGD:'新加坡幣',THB:'泰銖',VND:'越南盾',AED:'阿聯酋迪拉姆'};
+const BG_ZH={cream:'奶油',butter:'奶黃',blush:'粉霧',mint:'薄荷',sky:'天空'};
+const TH_ZH={marigold:'金盞橘',terracotta:'赤陶',rose:'玫瑰',plum:'梅紫',sea:'海藍'};
+const DATES=[['25','Today'],['24','Fri 24/10/2026'],['23','Thu 23/10/2026'],['22','Wed 22/10/2026'],['20','Mon 20/10/2026'],['19','Sun 19/10/2026']];
+const LEDGERS=[
+ {id:'living',name:'Living',cur:'AUD',shared:false,star:true},
+ {id:'japan',name:'Japan Trip',cur:'JPY',shared:true,star:true,members:['You','Amy','Ben']},
+ {id:'travel',name:'Travel',cur:'AUD',shared:false},
+ {id:'flat',name:'Flat',cur:'AUD',shared:true,members:['You','Amy','Chloe']},
+ {id:'yen',name:'Yen Wallet',cur:'JPY',shared:false}];
+const AV={You:'var(--color-accent-300)',Amy:'var(--color-accent-2-300)',Ben:'var(--color-neutral-300)',Chloe:'var(--color-accent-200)',Dad:'var(--color-neutral-200)'};
+const ENTRIES=[
+ {l:'living',d:'25',c:'subs',m:2299,note:'Netflix',auto:true},
+ {l:'living',d:'25',c:'coffee',m:580,note:'Flat white'},
+ {l:'living',d:'25',c:'groceries',m:5250,note:'Woolies'},
+ {l:'living',d:'24',c:'opal',m:420,note:'Opal top-up'},
+ {l:'living',d:'24',c:'salary',m:420000,note:'October pay'},
+ {l:'living',d:'23',c:'shopping',m:8900,note:'Running shoes'},
+ {l:'living',d:'23',c:'dining',m:3600,note:'Thai with Sam'},
+ {l:'living',d:'22',c:'rent',m:105000,note:'Rent'},
+ {l:'travel',d:'20',c:'travel',m:41200,note:'Flights to Hobart'},
+ {l:'yen',d:'19',c:'groceries',m:1200,note:'Konbini snacks'},
+ {l:'japan',d:'25',c:'dining',m:4800,note:'Ramen dinner',payer:'Amy',share:1600},
+ {l:'japan',d:'24',c:'transport',m:6000,note:'Suica cards',payer:'You',share:2000,edited:'Edited by Ben'},
+ {l:'japan',d:'24',c:'refund',m:9000,note:'Hotel refund',payer:'Ben',share:3000},
+ {l:'japan',d:'23',c:'housing',m:36000,note:'Kyoto stay',payer:'Amy',share:12000},
+ {l:'flat',d:'22',c:'bills',m:12600,note:'Electricity',payer:'You',share:4200},
+ {l:'flat',d:'19',c:'rent',m:63000,note:'Rent',payer:'You',share:21000,rec:true}];
+const BAL={japan:[{k:'Amy',t:'You owe Amy',z:'你欠 Amy',m:2500,owe:true},{k:'Ben',t:'Ben owes you',z:'Ben 欠你',m:1200}],flat:[{k:'Amy',t:'Amy owes you',z:'Amy 欠你',m:4200},{k:'Chloe',t:'Chloe owes you',z:'Chloe 欠你',m:4200}]};
+const fmt=(cur,m,sign='')=>{const [s,,d]=CUR[cur]||['',0,2];return sign+s+(Math.abs(m)/10**d).toLocaleString('en-AU',{minimumFractionDigits:d,maximumFractionDigits:d});};
+const THEMES=[['marigold','Marigold',68],['terracotta','Terracotta',42],['rose','Rose',12],['plum','Plum',330],['sea','Sea',230]];
+const BGS=[['cream','Cream',85],['butter','Butter',100],['blush','Blush',35],['mint','Mint',150],['sky','Sky',235]];
+const bgVars=h=>({'--color-bg':`oklch(0.945 0.03 ${h})`,'--color-surface':`oklch(0.9 0.038 ${h})`,'--color-neutral-200':`oklch(0.93 0.018 ${h})`,'--color-neutral-300':`oklch(0.86 0.022 ${h})`});
+const RL=[.97,.93,.87,.79,.71,.62,.52,.42,.31], RC=[.02,.045,.08,.12,.15,.14,.12,.09,.06];
+const rampVars=h=>{const o={'--color-accent':`oklch(0.66 0.15 ${h})`};RL.forEach((l,i)=>o[`--color-accent-${(i+1)*100}`]=`oklch(${l} ${RC[i]} ${h})`);return o;};
+const OVER={'category-date':'category','category-note':'category','settle-ben':'home','photo-confirm':'appearance',currency:'amount','route-none':'amount',route:'category',settle:'home',end:'home',menu:'home','charge-edit':'home','balance-update':'banks',reconcile:'banks','recurring-afterpay':'recurring-new','recurring-split':'recurring-new'};
+const RECUR=[
+ {id:'netflix',name:'Netflix',m:2299,l:'living',c:'subs',f:'monthly',next:25,nm:11},
+ {id:'icloud',name:'Apple iCloud+',m:449,l:'living',c:'subs',f:'monthly',next:8,nm:11,apple:true,ic:'cloud'},
+ {id:'music',name:'Apple Music',m:1299,l:'living',c:'subs',f:'monthly',next:12,nm:11,apple:true,ic:'music'},
+ {id:'spotify',name:'Spotify',m:1399,l:'living',c:'subs',f:'monthly',next:3,nm:11},
+ {id:'phone',name:'Phone plan',zh:'手機月租',m:3500,l:'living',c:'bills',f:'monthly',next:14,nm:11},
+ {id:'gym',name:'Gym',zh:'健身房',m:1890,l:'living',c:'health',f:'fortnightly',next:30},
+ {id:'afterpay',name:'Running shoes',zh:'跑鞋',m:2225,l:'living',c:'shopping',f:'fortnightly',ap:[2,4],next:6,nm:11},
+ {id:'rent',name:'Rent',zh:'房租',m:63000,share:21000,l:'flat',c:'rent',f:'weekly',next:26,split:true},
+ {id:'internet',name:'Internet',zh:'網路',m:7500,share:2500,l:'flat',c:'bills',f:'monthly',next:1,nm:11,split:true}];
+const BANKS=[{id:'cba',name:'CommBank',cur:'AUD',m:234018,d:18},{id:'taishin',name:'Taishin Bank',zh:'台新銀行',cur:'TWD',m:4820000,d:1}];
+const RECORDED={cba:42000,taishin:150000};
+const MON=[['rent',252000,252000],['groceries',41230,38890],['dining',28600,34150],['shopping',18900,6200],['opal',8400,9600],['subs',6436,6436],['coffee',5800,5100]];
+
+class Component extends DCLogic {
+  state={screen:null,tab:'living',cur:'AUD',amt:'42.50',type:'expense',preType:null,ledger:'living',fixed:'living',lastUsed:{AUD:'living',JPY:'yen'},q:'',stars:['AUD','JPY','TWD'],extra:[],added:[],settled:[],ended:[],splitOut:[],splitOpen:true,splitKind:'expense',payer:'You',splitCat:null,nlName:'Weekend in Hobart',nlShared:true,nlCur:'AUD',nlShare:'ask',nlMembers:['Amy'],nlReturn:null,lang:'system',fStars:['Amy'],placeholders:['Dad'],lstar:['living','japan'],order:null,toast:''};
+  set(o){ if(this.props.interactive) this.setState(o); }
+  toastMsg(t){ if(!this.props.interactive) return; this.setState({toast:t}); clearTimeout(this.tt); this.tt=setTimeout(()=>this.setState({toast:''}),2400); }
+  componentWillUnmount(){ clearTimeout(this.tt); }
+  rootRef=React.createRef();
+  themeId(){ return (this.props.interactive&&this.state.theme)||this.props.theme||'marigold'; }
+  bgId(){ return (this.props.interactive&&this.state.bg)||this.props.bg||'cream'; }
+  applyTheme(){ const el=this.rootRef.current; if(!el) return; const t=THEMES.find(x=>x[0]===this.themeId())||THEMES[0]; const b=BGS.find(x=>x[0]===this.bgId())||BGS[0]; const v={...rampVars(t[2]),...bgVars(b[2])}; Object.keys(v).forEach(k=>el.style.setProperty(k,v[k])); }
+  componentDidMount(){ this.applyTheme(); }
+  componentDidUpdate(){ this.applyTheme(); }
+  feat(c){
+    const {S,I,zh,T,go,screen,ledgers,ordered,cl,pn}=c;
+    const set=o=>this.set(o), toast=t=>this.toastMsg(t);
+    const aud=(m,s)=>fmt('AUD',m,s||'');
+    const p2=n=>String(n).padStart(2,'0');
+    const dm=(d,mo)=>zh?`${p2(mo||10)}/${p2(d)}`:`${p2(d)}/${p2(mo||10)}`;
+    const full=(d,mo)=>zh?`2026/${p2(mo||10)}/${p2(d)}`:`${p2(d)}/${p2(mo||10)}/2026`;
+    const FQ={weekly:[T('Weekly','每週'),52/12],fortnightly:[T('Fortnightly','每兩週'),26/12],monthly:[T('Monthly','每月'),1],yearly:[T('Yearly','每年'),1/12]};
+    const lname=id=>(ledgers.find(l=>l.id===id)||{}).name||'';
+    const nx=r=>dm(r.next,r.nm);
+    const rnm=r=>zh&&r.zh?r.zh:r.name;
+    const seg=on=>({bg:on?'var(--color-text)':'transparent',fg:on?'var(--color-bg)':'var(--color-text)'});
+    const RC=[...RECUR,...(S.recAdded||[])];
+    const monthly=RC.reduce((a,r)=>a+(r.split?r.share:r.m)*FQ[r.f][1],0);
+    const monthlyTxt='$'+Math.round(monthly/100).toLocaleString('en-AU');
+    const recRow=r=>{const fq=FQ[r.f][0];let sub;
+      if(r.ap) sub=T(`Payment ${r.ap[0]} of ${r.ap[1]} · next ${nx(r)}`,`第 ${r.ap[0]}/${r.ap[1]} 期 · 下次 ${nx(r)}`);
+      else if(r.split) sub=T(`${fq} · ${lname(r.l)} · your share ${aud(r.share)}`,`${fq} · ${lname(r.l)} · 你分到 ${aud(r.share)}`);
+      else sub=T(`${fq} · next ${nx(r)} · ${lname(r.l)}`,`${fq} · 下次 ${nx(r)} · ${lname(r.l)}`);
+      return {name:r.ap?'Afterpay · '+rnm(r):rnm(r),sub,amt:aud(r.m),hasDots:!!r.ap,dots:r.ap?Array.from({length:r.ap[1]},(_,i)=>({bg:i<r.ap[0]?'var(--color-accent)':'var(--color-neutral-400)'})):[],tag:r.apple?T('Apple ID','Apple 訂閱'):'',
+        icon:r.ic?'icon-'+r.ic:CAT[r.c].icon,iconBg:r.split?'var(--color-accent-2-200)':'var(--color-accent-200)',iconFg:r.split?'var(--color-accent-2-800)':'var(--color-accent-800)',
+        onClick:()=>set({screen:'recurring-new',rEdit:r.id,rtpl:r.ap?'afterpay':r.split?'split':'regular',rName:rnm(r),rAmt:String((r.ap?r.m*r.ap[1]:r.m)/100),rFreq:r.f,rCat:r.c,rRemind:!!r.ap})};};
+    const recSections=[[T('Subscriptions & bills','訂閱與帳單'),RC.filter(r=>!r.ap&&!r.split)],[T('Instalments','分期付款'),RC.filter(r=>r.ap)],[T('Shared · split automatically','定期分帳 · 自動分給成員'),RC.filter(r=>r.split)]].filter(s=>s[1].length).map(([title,rs])=>({title,rows:rs.map(recRow)}));
+
+    const tpl=I?(S.rtpl||'regular'):(screen==='recurring-afterpay'?'afterpay':screen==='recurring-split'?'split':'regular');
+    const DEF={regular:['Apple iCloud+','4.49','monthly','subs'],afterpay:[T('Running shoes','跑鞋'),'89.00','fortnightly','shopping'],split:[T('Rent','房租'),'630.00','weekly','rent']};
+    const rName=I&&S.rName!=null?S.rName:DEF[tpl][0], rAmt=I&&S.rAmt!=null?S.rAmt:DEF[tpl][1], rFreq=(I&&S.rFreq)||DEF[tpl][2], rCat=(I&&S.rCat)||DEF[tpl][3];
+    const remind=I?(S.rRemind!=null?!!S.rRemind:tpl==='afterpay'):tpl==='afterpay';
+    const rM=Math.round(parseFloat(rAmt||'0')*100)||0;
+    const apB=Math.floor(rM/4), apR=rM-apB*4;
+    const mem=['You','Amy','Chloe'], sB=Math.floor(rM/3), sR=rM-sB*3;
+    const CATSET={regular:['subs','bills','health','fun','other'],afterpay:['shopping','fun','travel','gifts','other'],split:['rent','bills','groceries','other']};
+    const PRE=[['Apple iCloud+','4.49','icon-cloud'],['Apple Music','12.99','icon-music'],['Netflix','22.99','icon-tv'],['Spotify','13.99','icon-headphones'],[T('Phone plan','手機月租'),'35.00','icon-smartphone']];
+    const rn={
+      tpls:[['regular',T('Regular','一般')],['afterpay','Afterpay'],['split',T('Split','定期分帳')]].map(([id,label])=>({label,...seg(tpl===id),onClick:()=>set({rtpl:id,rName:null,rAmt:null,rFreq:null,rCat:null,rRemind:null})})),
+      isAp:tpl==='afterpay',notAp:tpl!=='afterpay',isSplit:tpl==='split',isReg:tpl==='regular',
+      presets:PRE.map(([n,a,icon])=>{const on=rName===n;return {label:n,icon,bg:on?'var(--color-accent-100)':'transparent',border:on?'var(--color-accent)':'var(--color-divider)',onClick:()=>set({rName:n,rAmt:a,rCat:n===T('Phone plan','手機月租')?'bills':'subs',rFreq:'monthly'})};}),
+      name:rName,onName:e=>set({rName:e.target.value}),amt:rAmt,onAmt:e=>set({rAmt:e.target.value.replace(/[^0-9.]/g,'')}),
+      amtLabel:tpl==='afterpay'?T('Total','總金額'):T('Amount','金額'),
+      freqs:Object.keys(FQ).map(k=>({label:FQ[k][0],...seg(rFreq===k),onClick:()=>set({rFreq:k})})),
+      cats:CATSET[tpl].map(id=>{const on=rCat===id;return {label:cl(id),icon:CAT[id].icon,bg:on?'var(--color-accent)':'var(--color-surface)',fg:on?'var(--color-bg)':'var(--color-accent-800)',onClick:()=>set({rCat:id})};}),
+      rows:tpl==='split'?[[T('Ledger','帳本'),lname('flat')+' · AUD'],[T('Starts','開始'),full(26)],[T('Paid by','付款人'),pn('You')]]:tpl==='afterpay'?[[T('Ledger','帳本'),lname('living')+' · AUD'],[T('First payment','第一期'),full(25)],[T('Plan','方案'),T('4 payments · every 2 weeks','4 期 · 每兩週')]]:[[T('Ledger','帳本'),lname('living')+' · AUD'],[T('First charge','第一次扣款'),full(25)]],
+      tgBg:remind?'var(--color-accent)':'var(--color-neutral-400)',tgJustify:remind?'flex-end':'flex-start',onRemind:()=>set({rRemind:!remind}),
+      remindSub:tpl==='afterpay'?T('On for instalments so a payment never surprises you','分期預設開啟，扣款前一天提醒你準備好錢'):T('Off by default','預設關閉'),
+      sched:[0,1,2,3].map(i=>{const dt=new Date(2026,9,25+14*i);return {i:String(i+1),date:full(dt.getDate(),dt.getMonth()+1),amt:aud(apB+(i===0?apR:0)),dotBg:i===0?'var(--color-accent)':'var(--color-surface)',dotFg:i===0?'var(--color-bg)':'var(--color-text)'};}),
+      splitLedger:lname('flat')+' · AUD',
+      shares:mem.map((nm,i)=>({name:pn(nm),initial:pn(nm)[0],av:AV[nm],amt:aud(sB+(i<sR?1:0))})),
+      note:tpl==='afterpay'?T('Split into 4 payments, one every 2 weeks. Each one is recorded on the day, and it stops by itself after the last. Other plans can set their own number of payments.','自動拆成 4 期、每兩週一次，每期當天自動記入，最後一期扣完就自動停止。其他分期可以自訂期數。'):tpl==='split'?T(`Added to ${lname('flat')} every Monday and split equally. Amy and Chloe see it and get a notification.`,`每週一自動記入「${lname('flat')}」並均分，Amy 和 Chloe 都看得到，也會收到通知。`):T("Apple ID subscriptions and direct debits charge you without asking. Add them once and each charge is recorded on the day, with a notification so you can fix the amount.",'Apple ID 訂閱、自動扣款都不會先問你。設定一次，每次扣款當天自動記入並推播通知，金額不對可以直接改。'),
+      save:()=>{ if(!I) return; if(!rM) return toast(T('Enter an amount first','請先輸入金額'));
+        const nm=(rName||'').trim()||T('Untitled','未命名');
+        if(S.rEdit){ this.setState({screen:'recurring',rEdit:null}); return toast(T(`${nm} updated`,`已更新「${nm}」`)); }
+        const r={id:'r'+Date.now(),name:nm,c:rCat,f:tpl==='afterpay'?'fortnightly':rFreq,next:25,nm:10,l:tpl==='split'?'flat':'living',apple:/^Apple/.test(nm)};
+        if(tpl==='afterpay') Object.assign(r,{m:apB,ap:[0,4]}); else if(tpl==='split') Object.assign(r,{m:rM,share:sB,split:true}); else r.m=rM;
+        this.setState({recAdded:[...(S.recAdded||[]),r],screen:'recurring',rName:null,rAmt:null,rFreq:null,rCat:null,rRemind:null}); toast(T(`${nm} saved`,`已儲存「${nm}」`)); }
+    };
+
+    const ceAmt=I&&S.ceAmt!=null?S.ceAmt:'22.99';
+    const ceDel=()=>{ if(!I) return; this.setState({ceDel:true,tab:'living',screen:'home'}); toast(T('Netflix charge deleted','已刪除這筆 Netflix 扣款')); };
+    const notifs=[
+      {icon:'icon-repeat',title:T('Netflix charged today','Netflix 今天已扣款'),time:T('now','現在'),body:T('22.99 AUD was added to Living · Subscriptions. Wrong amount? Edit or delete it.','Netflix 22.99 AUD 今天已扣款，已記入「生活 · 訂閱」。金額不對可以修改或刪除。'),hasActions:true,
+        actions:[{label:T('Edit amount','修改金額'),fg:'var(--color-text)',onClick:e=>{e.stopPropagation();set({screen:'charge-edit'});}},{label:T('Delete','刪除'),fg:'oklch(0.52 0.17 27)',onClick:e=>{e.stopPropagation();ceDel();}}],onClick:()=>set({screen:'charge-edit'})},
+      {icon:'icon-calendar-clock',title:T('Afterpay due tomorrow','明天 Afterpay 要扣款'),time:T('8:00','早上 8:00'),body:T('Running shoes · payment 3 of 4 · $22.25. Make sure CommBank has enough.','跑鞋 · 第 3/4 期 · $22.25，記得 CommBank 要有足夠餘額。'),hasActions:false,actions:[],onClick:()=>set({screen:'recurring'})},
+      {icon:'icon-landmark',title:T('Time to update CommBank','該更新 CommBank 餘額了'),time:T('Sun','週日'),body:T("Type in today's balance to see if anything wasn't recorded.",'輸入今天的餘額，看看有沒有漏記。'),hasActions:false,actions:[],onClick:()=>set({screen:'balance-update',bankId:'cba',bAmt:''})}];
+    const ce={amt:ceAmt,onAmt:e=>set({ceAmt:e.target.value.replace(/[^0-9.]/g,'')}),del:ceDel,editRec:()=>set({screen:'recurring'}),
+      save:()=>{ if(!I) return; const m=Math.round(parseFloat(ceAmt||'0')*100); if(!m) return; this.setState({ceM:m,ceDel:false,tab:'living',screen:'home'}); toast(T(`Netflix updated to ${aud(m)}`,`Netflix 已改為 ${aud(m)}`)); }};
+
+    const bb=S.bankBal||{}, bd=S.bankDay||{}, bg=S.bankGap||{};
+    const BK=BANKS.map(b=>({...b,name:zh&&b.zh?b.zh:b.name,m:bb[b.id]!=null?bb[b.id]:b.m,d:bd[b.id]||b.d,gap:bg[b.id]}));
+    const bFreq=S.bankFreq||'weekly', freqDays=bFreq==='weekly'?7:30;
+    const dueN=BK.filter(b=>25-b.d>=freqDays).length;
+    const bankRows=BK.map(b=>{const ago=25-b.d, due=ago>=freqDays;
+      return {name:b.name,cur:b.cur,bal:fmt(b.cur,b.m),upd:ago===0?T('Updated today','今天更新'):T(`Updated ${full(b.d)} · ${ago} days ago`,`${full(b.d)} 更新 · ${ago} 天前`),
+        gap:b.gap?T(`${fmt(b.cur,b.gap)} wasn't recorded`,`有 ${fmt(b.cur,b.gap)} 沒記到`):'',
+        btnBg:due?'var(--color-accent)':'var(--color-surface)',btnFg:due?'var(--color-bg)':'var(--color-text)',onUpdate:()=>set({screen:'balance-update',bankId:b.id,bAmt:''})};});
+    const bk=BK.find(b=>b.id===((I&&S.bankId)||'cba'))||BK[0];
+    const bcur=bk.cur,bdec=CUR[bcur][2],bsym=CUR[bcur][0];
+    const bRaw=I?(S.bAmt||''):'1840.18';
+    const [bi,bf]=bRaw.split('.');
+    const bShown=bRaw===''?'':Number(bi||'0').toLocaleString('en-AU')+(bf!==undefined?'.'+bf:'');
+    const bNew=Math.round(parseFloat(bRaw||'0')*10**bdec)||0;
+    const bpress=k=>{let a=bRaw; if(k==='del') a=a.slice(0,-1); else if(k==='.'){ if(!bdec||a.includes('.')) return; a=(a||'0')+'.'; } else { const [i,f]=a.split('.'); if(f!==undefined&&f.length>=bdec) return; if(f===undefined&&i.length>=9) return; a=(a==='0'?'':a)+k; } set({bAmt:a}); };
+    const bu={title:T(`Update ${bk.name}`,`更新 ${bk.name}`),last:T(`Last balance ${fmt(bcur,bk.m)} on ${full(bk.d)}`,`上次餘額 ${fmt(bcur,bk.m)}（${full(bk.d)}）`),sym:bsym,amtText:bShown||'0',amtColor:bShown?'var(--color-text)':'var(--color-neutral-500)',btnOp:bRaw?1:0.45,
+      keys:['1','2','3','4','5','6','7','8','9','.','0','del'].map(k=>({k:(k==='.'&&!bdec)?'':k,isDel:k==='del',isTxt:k!=='del',onClick:()=>bpress(k)})),
+      check:()=>{ if(bRaw) set({screen:'reconcile'}); }};
+    const recd=RECORDED[bk.id]||0, drop=bk.m-bNew, gap=drop-recd;
+    const apply={bankBal:{...bb,[bk.id]:bNew},bankDay:{...bd,[bk.id]:25},bankGap:{...bg,[bk.id]:Math.max(gap,0)},bAmt:''};
+    const rc={title:gap>0?T(`${fmt(bcur,gap)} wasn't recorded`,`有 ${fmt(bcur,gap)} 沒記到`):T('Everything is recorded','全部都有記到'),hasGap:gap>0,
+      rows:[[T('Balance went down','餘額減少'),fmt(bcur,Math.abs(drop),drop>=0?'−':'+'),0],[T(`Recorded since ${full(bk.d)}`,`${full(bk.d)} 之後記的支出`),fmt(bcur,recd,'−'),0],[T('Not recorded','沒記到'),fmt(bcur,Math.max(gap,0)),1]].map(([label,value,hi])=>({label,value,bt:hi?'1px solid var(--color-divider)':'0',fw:hi?'800':'600',fs:hi?'20px':'15px',vc:hi?'var(--color-accent-700)':'var(--color-text)'})),
+      body:gap>0?T(`${fmt(bcur,bk.m)} → ${fmt(bcur,bNew)}. Add the missing amount now so the month adds up, or skip it this time.`,`${fmt(bcur,bk.m)} → ${fmt(bcur,bNew)}。現在補記，這個月的帳就對得上；也可以這次先略過。`):T('Your entries match your bank balance.','你的紀錄和銀行餘額對得上。'),
+      skipLabel:gap>0?T('Skip this time','這次略過'):T('Done','完成'),
+      add:()=>{ if(!I) return; this.setState({...apply,screen:'amount',amt:String(gap/10**bdec),cur:bcur,fixed:bcur==='AUD'?'living':null,preType:null,note:'',entryDay:25,dateOpen:false}); },
+      skip:()=>{ if(!I) return; this.setState({...apply,screen:'banks'}); toast(T(`${bk.name} updated`,`已更新 ${bk.name}`)); }};
+
+    const tot=MON.reduce((a,x)=>a+x[1],0), prev=MON.reduce((a,x)=>a+x[2],0), dT=tot-prev;
+    const mx=Math.max(...MON.map(x=>Math.max(x[1],x[2])));
+    const mc={kicker:T(`Spent in September · ${lname('living')}`,`九月支出 · ${lname('living')}`),total:aud(tot),
+      delta:T(`${dT>=0?'+':'−'}${aud(Math.abs(dT))} vs August`,`比八月${dT>=0?'多':'少'} ${aud(Math.abs(dT))}`),deltaBg:dT>0?'var(--color-accent-100)':'var(--color-accent-2-100)',deltaFg:dT>0?'var(--color-accent-800)':'var(--color-accent-2-800)',
+      cards:[{icon:'icon-repeat',value:monthlyTxt,label:T(`Fixed each month · ${RC.length} recurring`,`每月固定支出 · ${RC.length} 筆定期`),bg:'var(--color-accent-2-200)',fg:'var(--color-accent-2-900)',onClick:()=>go('recurring')},
+        {icon:'icon-scale',value:aud(3540),label:T("Wasn't recorded at your last bank check",'上次對帳時沒記到'),bg:'var(--color-accent-200)',fg:'var(--color-accent-900)',onClick:()=>go('banks')}],
+      rows:MON.map(([id,a,b])=>{const d=a-b;return {label:cl(id),icon:CAT[id].icon,amt:aud(a),w1:(a/mx*100).toFixed(1)+'%',w2:(b/mx*100).toFixed(1)+'%',
+        delta:d===0?T('Same as August','和八月一樣'):T(`${d>0?'+':'−'}${aud(Math.abs(d))} vs August`,`比八月${d>0?'多':'少'} ${aud(Math.abs(d))}`),dFg:d>0?'var(--color-accent-700)':d<0?'var(--color-accent-2-700)':'var(--color-neutral-700)'};})};
+
+    const live=ordered.filter(l=>!S.ended.includes(l.id));
+    const dragDemo=!I&&screen==='reorder'?'travel':null;
+    const rrow=l=>{const st=l.star, lift=dragDemo===l.id||(I&&S.dragging===l.id);
+      return {name:l.name,cur:l.cur,shared:l.shared,star:st?'★':'☆',starColor:st?'var(--color-accent)':'var(--color-neutral-500)',
+        bg:lift?'var(--color-bg)':'var(--color-neutral-100)',shadow:lift?'var(--shadow-lg)':'var(--shadow-sm)',tf:lift?'rotate(-1.5deg) scale(1.02)':'none',
+        onStar:()=>set({lstar:st?S.lstar.filter(x=>x!==l.id):[...S.lstar,l.id]}),
+        onDragStart:e=>{this.dragId=l.id; if(e.dataTransfer) e.dataTransfer.effectAllowed='move'; set({dragging:l.id});},
+        onDragOver:e=>e.preventDefault(),
+        onDrop:e=>{e.preventDefault(); const from=this.dragId; this.dragId=null; if(!from||from===l.id) return set({dragging:null}); const ids=ordered.map(x=>x.id).filter(x=>x!==from); ids.splice(ids.indexOf(l.id),0,from); set({order:ids,dragging:null});},
+        onDragEnd:()=>set({dragging:null})};};
+    const reorderSections=[{title:T('Pinned · always first','置頂 · 永遠排最前面'),rows:live.filter(l=>l.star).map(rrow)},{title:T('Other ledgers','其他帳本'),rows:live.filter(l=>!l.star).map(rrow)}].filter(s=>s.rows.length);
+
+    const mi=(icon,label,sub,onClick,alert)=>({icon,label,sub,onClick,subFg:alert?'var(--color-accent-700)':'var(--color-neutral-700)'});
+    return {
+      goMenu:()=>go('menu'),
+      menuItems:[mi('icon-repeat',T('Recurring payments','定期扣款'),T(`About ${monthlyTxt} a month`,`每月約 ${monthlyTxt}`),()=>go('recurring')),
+        mi('icon-landmark',T('Bank balances','銀行餘額'),dueN?T(`${dueN} due for an update`,`${dueN} 個帳戶該更新了`):T('All up to date','都是最新的'),()=>go('banks'),dueN>0),
+        mi('icon-chart-column',T('Monthly check','每月檢查'),T('September is ready','九月報告已完成'),()=>go('monthly')),
+        mi('icon-arrow-up-down',T('Arrange tabs','排列分頁'),'',()=>go('reorder')),
+        mi('icon-book-plus',T('New ledger','新增帳本'),'',c.goNewLedger),
+        mi('icon-user-plus',T('Friends','好友'),'',()=>go('friends')),
+        mi('icon-settings',T('Settings','設定'),'',()=>go('settings'))],
+      reorderSections,recSections,rn,notifs,ce,bankRows,bu,rc,mc,
+      recTotal:T(`About ${monthlyTxt} a month`,`每月約 ${monthlyTxt}`),
+      recTotalSub:T(`${RC.length} recurring payments, including Apple ID subscriptions and Afterpay. For split ones, only your share counts.`,`共 ${RC.length} 筆，包含 Apple ID 訂閱和 Afterpay；分帳的只算你分到的部分。`),
+      goRecNew:()=>set({screen:'recurring-new',rtpl:'regular',rEdit:null,rName:null,rAmt:null,rFreq:null,rCat:null,rRemind:null}),
+      addBank:()=>toast(T('Just a name and currency, e.g. ING · AUD','只要輸入名稱和幣別，例如 ING · AUD')),
+      bankFreqs:[['weekly',T('Every week','每週')],['monthly',T('Every month','每月')]].map(([id,label])=>({label,...seg(bFreq===id),onClick:()=>set({bankFreq:id})})),
+      L2:{arrange:T('Arrange tabs','排列分頁'),arrangeNote:T('Drag to change the order. Pinned ledgers always come first, and adding entries never moves a tab. You can also long-press a tab on the home screen.','拖曳調整順序，置頂的帳本永遠排最前面；新增紀錄不會改變順序。也可以在首頁長按分頁拖曳。'),
+        recurring:T('Recurring','定期扣款'),fixedCosts:T('Fixed costs','固定支出'),newRec:S.rEdit?T('Edit recurring','編輯定期扣款'):T('New recurring','新增定期扣款'),quickPick:T('Common subscriptions','常見訂閱'),name:T('Name','名稱'),repeats:T('Repeats','頻率'),category:T('Category','類別'),remind:T('Remind me the day before','前一天提醒我'),apPlan:T('Payment schedule','扣款時程'),saveRec:S.rEdit?T('Save changes','儲存變更'):T('Save recurring','儲存定期扣款'),
+        lockDate:T('Sunday 25 October','10月25日 星期日'),ceSub:T('Auto-recorded today · Living · Subscriptions','今天自動記入 · 生活 · 訂閱'),ceNote:T('Only this charge changes. Next month is still 22.99 unless you edit the recurring payment.','只會改這一筆；下個月仍是 22.99，除非你修改定期扣款。'),saveChange:T('Save','儲存'),deleteCharge:T('Delete','刪除'),editRec:T('Edit recurring','修改定期扣款'),
+        banks:T('Bank balances','銀行餘額'),banksNote:T("No bank login needed. Type in one number each week or month and the app works out how much wasn't recorded.",'不用連結銀行。每週或每月輸入一個數字，App 會算出有多少錢沒記到。'),update:T('Update','更新'),addBank:T('Add bank account','新增銀行帳戶'),remindUpdate:T('Remind me to update','提醒我更新'),balHint:T('Your balance in the banking app right now','銀行 App 裡現在的餘額'),check:T('Check my entries','對帳'),addMissing:T('Add missing entry','補記一筆'),
+        monthly:T('Monthly check','每月檢查'),byCat:T('By category','各類別'),thisM:T('Sep','九月'),lastM:T('Aug','八月')}
+    };
+  }
+  renderVals(){
+    const P=this.props, S=this.state, I=!!P.interactive;
+    const lang=I?(S.lang==='zh'?'zh':S.lang==='en'?'en':(P.lang||'en')):(P.lang||'en');
+    const zh=lang==='zh', T=(e,z)=>zh?z:e;
+    const cl=id=>zh?ZH_CAT[id]:CAT[id].label;
+    const pn=nm=>nm==='You'?T('You','你'):nm==='Dad'?T('Dad','爸爸'):nm;
+    const screen=I?(S.screen||P.screen||'home'):(P.screen||'home');
+    const ios=P.platform!=='android';
+    const dir=P.direction||'A';
+    const baseL=[...LEDGERS.map(l=>zh?{...l,name:NAME_ZH[l.id]}:l),...S.added].map(l=>({...l,star:S.lstar.includes(l.id)}));
+    const ord=S.order||baseL.map(l=>l.id), oi=id=>{const i=ord.indexOf(id);return i<0?999:i;};
+    const ledgers=[...baseL].sort((a,b)=>oi(a.id)-oi(b.id));
+    const liveL=ledgers.filter(l=>!S.ended.includes(l.id));
+    const ordered=[...liveL.filter(l=>l.star),...liveL.filter(l=>!l.star),...ledgers.filter(l=>S.ended.includes(l.id))];
+    const tabId=I?S.tab:(['home-split','settle','end','settle-ben'].includes(screen)?'japan':'living');
+    const led=ledgers.find(l=>l.id===tabId)||ledgers[0];
+    const cur=(!I&&screen==='route-none')?'NZD':S.cur;
+    const [sym,curNameEn,dec]=CUR[cur]; const curName=zh?CUR_ZH[cur]:curNameEn;
+    const under=OVER[screen]||screen;
+    const show={home:['home','home-split'].includes(under),amount:under==='amount',category:under==='category',split:under==='split',newledger:under==='newledger',friends:under==='friends',settings:under==='settings',widgets:under==='widgets',currency:screen==='currency',route:screen==='route',routeNone:screen==='route-none',settle:screen==='settle'||screen==='settle-ben',end:screen==='end'};
+    show.appearance=under==='appearance';
+    show.catNote=screen==='category-note'||screen==='category-date';
+    show.sheet=show.catNote||show.currency||show.route||show.routeNone||show.settle||show.end;
+    Object.assign(show,{menu:screen==='menu',reorder:under==='reorder',recurring:under==='recurring',recNew:under==='recurring-new',notif:under==='charge-notif',banks:under==='banks',monthly:under==='monthly',chargeEdit:screen==='charge-edit',balUpd:screen==='balance-update',recon:screen==='reconcile'});
+    show.sheet=show.sheet||show.menu||show.chargeEdit||show.balUpd||show.recon;
+    const go=s=>this.set({screen:s});
+    const demoPending=!I&&screen==='photo-confirm';
+    const photo=demoPending?'':((I&&S.photo!==undefined)?S.photo:(P.photo||''));
+    const pending=demoPending?(P.photo||''):(I?(S.pending||''):'');
+
+    const panelPct=(I&&S.panel)||([60,20].includes(Number(P.panel))?Number(P.panel):100);
+    const panelBg=panelPct>=100?'var(--color-surface)':`color-mix(in srgb, var(--color-surface) ${panelPct}%, transparent)`;
+    const firstActive=ordered[0].id===led.id;
+    const tabs=ordered.map(l=>{const a=l.id===led.id;const ended=S.ended.includes(l.id);
+      return {name:l.name,cur:l.cur,star:!!l.star&&!ended,shared:l.shared,
+        bg:dir==='B'?(a?'var(--color-text)':'var(--color-surface)'):(a?'var(--color-surface)':'color-mix(in srgb, var(--color-surface) 45%, transparent)'),
+        fg:dir==='B'&&a?'var(--color-bg)':(ended?'var(--color-neutral-600)':'var(--color-text)'),
+        onClick:()=>this.set({tab:l.id,screen:'home'})};});
+
+    const all=[...S.extra,...ENTRIES].filter(e=>!(e.auto&&S.ceDel)).map(e=>e.auto&&S.ceM!=null?{...e,m:S.ceM}:e);
+    const mine=all.filter(e=>e.l===led.id);
+    const WD_EN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], WD_ZH=['日','一','二','三','四','五','六'];
+    const dayLabel=d=>{const n=Number(d); if(n===25) return T('Today','今天'); if(n===24) return T('Yesterday','昨天'); const w=new Date(2026,9,n).getDay(); const dd=String(n).padStart(2,'0'); return zh?`2026/10/${dd}（${WD_ZH[w]}）`:`${WD_EN[w]} ${dd}/10/2026`;};
+    const days=[...new Set(mine.map(e=>e.d))].sort((a,b)=>Number(b)-Number(a));
+    const groups=days.map(d=>{const label=dayLabel(d);const its=mine.filter(e=>e.d===d);if(!its.length)return null;
+      const spent=its.filter(e=>!CAT[e.c].inc).reduce((a,e)=>a+(led.shared?e.share:e.m),0);
+      return {label,total:spent?fmt(led.cur,spent):'',items:its.map(e=>{const c=CAT[e.c];
+        const who=pn(e.payer);
+        return {icon:c.icon,title:(zh&&NOTE_ZH[e.note])||e.note||cl(e.c),
+          sub:led.shared?(zh?`${who}${c.inc?'收款':'付款'} · 你分到 ${fmt(led.cur,e.share)}`:`${who} ${c.inc?'received':'paid'} · your share ${fmt(led.cur,e.share)}`) :(e.note?cl(e.c):''),
+          amt:fmt(led.cur,e.m,c.inc?'+':''),amtColor:c.inc?'var(--color-accent-2-700)':'var(--color-text)',
+          iconBg:c.inc?'var(--color-accent-2-200)':'var(--color-accent-200)',iconFg:c.inc?'var(--color-accent-2-800)':'var(--color-accent-800)',edited:e.auto?T('Auto-recorded','自動記入'):e.rec?T('Weekly · auto-split','每週自動分帳'):e.edited?(zh?e.edited.replace('Edited by ','')+' 修改過':e.edited):''};})};}).filter(Boolean);
+    const spent=mine.filter(e=>!CAT[e.c].inc).reduce((a,e)=>a+e.m,0), income=mine.filter(e=>CAT[e.c].inc).reduce((a,e)=>a+e.m,0);
+    const bal=income-spent;
+    const sum={spent:fmt(led.cur,spent),income:fmt(led.cur,income),balance:fmt(led.cur,bal,bal<0?'−':''),balColor:bal<0?'oklch(0.52 0.17 27)':'var(--color-accent-2-700)'};
+    let balances=(BAL[led.id]||[]).filter(b=>!S.settled.includes(led.id+':'+b.k)).map(b=>({...b,m:b.m-((S.paid||{})[led.id+':'+b.k]||0)})).filter(b=>b.m>0).map(b=>({text:zh?b.z:b.t,amt:fmt(led.cur,b.m),color:b.owe?'var(--color-accent-700)':'var(--color-accent-2-700)'}));
+    if(!balances.length) balances=[{text:T('All settled','已結清'),amt:fmt(led.cur,0),color:'var(--color-neutral-700)'}];
+    const ledEnded=S.ended.includes(led.id);
+    const paid=S.paid||{};
+    const openBal=(BAL[led.id]||[]).filter(b=>!S.settled.includes(led.id+':'+b.k)).map(b=>({...b,m:b.m-(paid[led.id+':'+b.k]||0)})).filter(b=>b.m>0);
+    const sKey=screen==='settle-ben'?'Ben':((openBal.find(b=>b.k===S.settleWith)||openBal[0]||{}).k);
+    const sb=openBal.find(b=>b.k===sKey);
+    const lsym=CUR[led.cur][0], lfmt=m=>fmt(led.cur,m).slice(lsym.length), ldec=CUR[led.cur][2];
+    const rawAmt=screen==='settle-ben'&&!I?'700':(S.settleAmt!=null?S.settleAmt:'');
+    const enteredM=Math.min(sb?sb.m:0,Math.round(parseFloat(rawAmt||'0')*10**ldec)||0);
+    const isFull=sb&&enteredM>=sb.m;
+    const [rI,rF]=rawAmt.split('.');
+    const amtShown=rawAmt===''?'':Number(rI||'0').toLocaleString('en-AU')+(rF!==undefined?'.'+rF:'');
+    const settle=sb?{
+      opts:openBal.map(b=>{const on=b.k===sKey;return {label:`${b.k} · ${fmt(led.cur,b.m)}`,initial:b.k[0],av:AV[b.k],bg:on?'var(--color-accent-2-200)':'transparent',border:on?'transparent':'var(--color-divider)',onClick:()=>this.set({settleWith:b.k,settleAmt:null})};}),
+      fromI:sb.owe?pn('You')[0]:sb.k[0],toI:sb.owe?sb.k[0]:pn('You')[0],fromAv:sb.owe?AV.You:AV[sb.k],toAv:sb.owe?AV[sb.k]:AV.You,
+      line:sb.owe?T(`You pay ${sb.k}`,`你付給 ${sb.k}`):T(`${sb.k} paid you`,`${sb.k} 已付給你`),
+      proxy:sb.owe?'':T(`For ${sb.k}`,'代記'),sym:lsym,amt:amtShown,amtText:amtShown||'0',amtColor:amtShown?'var(--color-text)':'var(--color-neutral-500)',
+      keys:['1','2','3','4','5','6','7','8','9','.','0','del'].map(k=>({k:(k==='.'&&!ldec)?'':k,isDel:k==='del',isTxt:k!=='del',onClick:()=>{ let a=rawAmt;
+        if(k==='del') a=a.slice(0,-1); else if(k==='.'){ if(!ldec||a.includes('.')) return; a=(a||'0')+'.'; }
+        else { const [i,f]=a.split('.'); if(f!==undefined&&f.length>=ldec) return; if(f===undefined&&i.length>=9) return; a=(a==='0'?'':a)+k; }
+        this.set({settleAmt:a}); }})),
+      btnOp:enteredM?1:0.45,
+      onAmt:e=>{ let v=e.target.value.replace(/[^0-9.]/g,''); if(!ldec) v=v.replace(/\./g,''); const p=v.split('.'); if(p.length>2) return; if(p[1]&&p[1].length>ldec) return; this.set({settleAmt:v}); },
+      onFull:()=>this.set({settleAmt:String(sb.m/10**ldec)}),
+      fullLabel:T('Full amount','結清全額'),fullBg:isFull?'var(--color-accent-2)':'transparent',fullFg:isFull?'var(--color-bg)':'var(--color-text)',fullBorder:isFull?'transparent':'var(--color-divider)',
+      left:isFull||!enteredM?'':T(`${fmt(led.cur,sb.m-enteredM)} will still be owed after this.`,`記錄後還剩 ${fmt(led.cur,sb.m-enteredM)} 未結清。`),
+      btn:!enteredM?T('Enter an amount','請輸入金額'):isFull?T('Record repayment','記錄還款'):T('Record part payment','記錄部分還款'),enteredM,isFull,
+      body:sb.owe?(isFull?T(`Records a repayment in ${led.name} and brings your balance with ${sb.k} to ${fmt(led.cur,0)}. ${sb.k} sees it straight away.`,`在「${led.name}」記一筆還款，你和 ${sb.k} 的結餘歸零，${sb.k} 馬上看得到。`):T(`Records a repayment in ${led.name}. ${sb.k} sees it straight away.`,`在「${led.name}」記一筆還款，${sb.k} 馬上看得到。`))
+        :T(`Use this when ${sb.k} paid you back but hasn't recorded it. It's saved as recorded by you on ${sb.k}'s behalf, and ${sb.k} gets a notification.`,`${sb.k} 已經還你錢、但還沒記的時候，可以幫他代記。紀錄會標示由你代記，${sb.k} 會收到通知。`),
+      key:sb.k,owe:!!sb.owe}:{opts:[],fromI:'',toI:'',fromAv:'transparent',toAv:'transparent',line:T('All settled','已結清'),proxy:'',sym:'',amt:'0',amtText:'0',amtColor:'var(--color-neutral-500)',keys:[],btnOp:1,onAmt:()=>{},onFull:()=>{},fullLabel:'',fullBg:'transparent',fullFg:'inherit',fullBorder:'transparent',left:'',btn:T('Done','完成'),body:'',key:null,owe:false};
+
+    const pl=ledgers.filter(l=>!l.shared&&l.cur===cur);
+    const minor=Math.round(parseFloat(S.amt||'0')*10**dec);
+    const goCat=type=>{ if(!minor) return this.toastMsg(T('Enter an amount first','請先輸入金額'));
+      if(S.fixed&&pl.find(l=>l.id===S.fixed)) return this.set({type,preType:null,ledger:S.fixed,screen:'category'});
+      if(!pl.length) return this.set({type,preType:null,screen:'route-none'});
+      if(pl.length===1) return this.set({type,preType:null,ledger:pl[0].id,screen:'category'});
+      this.set({type,preType:null,ledger:S.lastUsed[cur]||pl[0].id,screen:'route'}); };
+    const press=k=>{let a=S.amt;
+      if(k==='del') a=a.slice(0,-1);
+      else if(k==='.'){ if(!dec||a.includes('.')) return; a=(a||'0')+'.'; }
+      else { const [i,f]=a.split('.'); if(f!==undefined&&f.length>=dec) return; if(f===undefined&&i.length>=9) return; a=(a==='0'?'':a)+k; }
+      this.set({amt:a}); };
+    const [ip,fp]=(S.amt||'0').split('.');
+    const amtDisplay=Number(ip||'0').toLocaleString('en-AU')+(fp!==undefined?'.'+fp:'');
+    const keys=['1','2','3','4','5','6','7','8','9','.','0','del'].map(k=>({k:(k==='.'&&!dec)?'':k,isDel:k==='del',isTxt:k!=='del',fg:'var(--color-text)',onClick:()=>press(k)}));
+    const TY=[['expense',T('Expense','個人支出'),'icon-arrow-up-right'],['income',T('Income','收入'),'icon-arrow-down-left'],['split',T('Split','分帳'),'icon-users']];
+    const types=TY.map(([id,label,icon])=>{const on=S.preType===id;
+      return {label,icon,bg:on?'var(--color-accent)':(id==='split'?'var(--color-accent-2-200)':'var(--color-surface)'),fg:on?'var(--color-bg)':(id==='split'?'var(--color-accent-2-900)':'var(--color-text)'),
+        onClick:()=>id==='split'?(minor?this.set({screen:'split',preType:null,splitOut:[],splitKind:'expense'}):this.toastMsg(T('Enter an amount first','請先輸入金額'))):goCat(id)};});
+    const fixedL=ledgers.find(l=>l.id===S.fixed);
+    const amtHint=!pl.length?T(`No ${cur} ledger yet. Change the currency, or pick a type to create one.`,`還沒有 ${cur} 帳本。可以換幣別，或選類型來建立。`):fixedL&&fixedL.cur===cur?T(`From your ${fixedL.name} tab`,`從「${fixedL.name}」分頁開始`):(led.shared?T(`From ${led.name} · shared`,`從「${led.name}」分帳開始`):T('Pick a type to continue','選擇類型繼續'));
+
+    const ledL=ledgers.find(l=>l.id===S.ledger)||pl[0]||ledgers[0];
+    const isInc=S.type==='income';
+    const cats=(isInc?INC:EXP).map(([id,label,icon])=>({label:zh?ZH_CAT[id]:label,icon:'icon-'+icon,bg:isInc?'var(--color-accent-2-200)':'var(--color-surface)',fg:isInc?'var(--color-accent-2-800)':'var(--color-accent-800)',
+      onClick:()=>this.set({pickCat:id,screen:'category-note',dateOpen:false})}));
+    const pickId=I?(S.pickCat||'dining'):'dining';
+    const pickC=CAT[pickId];
+    const pick={label:cl(pickId),icon:pickC.icon,bg:pickC.inc?'var(--color-accent-2-200)':'var(--color-accent-200)',fg:pickC.inc?'var(--color-accent-2-800)':'var(--color-accent-800)'};
+    const entryDay=(!I&&screen==='category-date')?23:(S.entryDay||25);
+    const dateOpen=(!I&&screen==='category-date')||(I&&!!S.dateOpen);
+    const savePick=()=>{ if(!I) return; this.setState({note:'',pickCat:null,entryDay:25,dateOpen:false,extra:[{l:ledL.id,d:String(entryDay),c:pickId,m:minor,note:(S.note||'').trim()},...S.extra],tab:ledL.id,screen:'home',lastUsed:{...S.lastUsed,[cur]:ledL.id}}); this.toastMsg(T(`Saved to ${ledL.name}`,`已存到「${ledL.name}」`)); };
+    const routeSorted=[...pl].sort((a,b)=>(b.id===S.lastUsed[cur])-(a.id===S.lastUsed[cur]));
+    const routeRows=routeSorted.map(l=>({label:`${l.name} · ${l.cur}`,tag:l.id===S.lastUsed[cur]?T('Last used','上次使用'):'',bg:l.id===ledL.id&&screen!=='route'?'var(--color-accent-100)':'var(--color-surface)',onClick:()=>this.set({ledger:l.id,screen:'category'})}));
+    const routeNew=()=>this.set({screen:'newledger',nlCur:cur,nlShared:false,nlName:'',nlReturn:'category'});
+
+    const curRow=code=>{const st=S.stars.includes(code);return {code,name:zh?CUR_ZH[code]:CUR[code][1],selected:code===cur,bg:code===cur?'var(--color-accent-100)':'transparent',star:st?'★':'☆',starColor:st?'var(--color-accent)':'var(--color-neutral-500)',
+      onClick:()=>{ let a=S.amt; if(!CUR[code][2]) a=a.split('.')[0]; this.set({cur:code,amt:a,screen:'amount',q:''}); },
+      onStar:e=>{ e.stopPropagation(); this.set({stars:st?S.stars.filter(x=>x!==code):[...S.stars,code]}); }};};
+    const qq=S.q.trim().toLowerCase();
+    const match=c=>!qq||c.toLowerCase().includes(qq)||CUR[c][1].toLowerCase().includes(qq)||CUR_ZH[c].includes(qq);
+    const curSections=[{title:T('Starred','常用'),rows:S.stars.filter(match).map(curRow)},{title:T('All currencies','全部幣別'),rows:ALL.filter(match).map(curRow)}].filter(s=>s.rows.length);
+
+    const sl=ledgers.find(l=>l.shared&&l.cur===cur&&!S.ended.includes(l.id));
+    const members=sl?sl.members:[];
+    const inMem=members.filter(n=>!S.splitOut.includes(n));
+    const n=inMem.length||1, base=Math.floor(minor/n), rem=minor-base*n;
+    const shares=inMem.map((nm,i)=>({name:pn(nm),initial:pn(nm)[0],av:AV[nm],amt:fmt(cur,base+(i<rem?1:0))}));
+    const sInc=S.splitKind==='income';
+    const splitCats=(sInc?INC:EXP).slice(0,7).map(([id,label,icon])=>{const on=S.splitCat===id;return {label:zh?ZH_CAT[id]:label,icon:'icon-'+icon,bg:on?'var(--color-accent)':'var(--color-surface)',fg:on?'var(--color-bg)':'var(--color-accent-800)',onClick:()=>this.set({splitCat:on?null:id})};});
+
+    const nlCurL=CUR[S.nlCur];
+    const nlMembers=['Amy','Ben','Chloe','Dad'].map(nm=>{const on=S.nlMembers.includes(nm);return {name:nm==='Dad'?T('Dad (placeholder)','爸爸（虛擬）'):nm,initial:pn(nm)[0],av:AV[nm],bg:on?'var(--color-accent-2-200)':'transparent',border:on?'transparent':'var(--color-divider)',onClick:()=>this.set({nlMembers:on?S.nlMembers.filter(x=>x!==nm):[...S.nlMembers,nm]})};});
+    const NLS=[['each',T('Add every entry to my personal ledger','每筆都計入個人帳本')],['never',T("Don't add",'不計入')],['ask',T('Ask me when the ledger ends','結束帳本時再問我')]];
+
+    const fRow=(nm,sub,ph)=>{const st=S.fStars.includes(nm);return {name:pn(nm),initial:pn(nm)[0],av:ph?'transparent':AV[nm],ring:ph?'2px dashed var(--color-neutral-500)':'0',sub,star:ph?'':(st?'★':'☆'),starColor:st?'var(--color-accent)':'var(--color-neutral-500)',onStar:()=>!ph&&this.set({fStars:st?S.fStars.filter(x=>x!==nm):[...S.fStars,nm]})};};
+    const friendsAll=[['Amy',T('Japan Trip, Flat','日本旅行、合租')],['Ben',T('Japan Trip','日本旅行')],['Chloe',T('Flat','合租')]];
+    const friendSections=[
+      {title:T('Starred · shown first when splitting','常用 · 分帳時排最前面'),rows:friendsAll.filter(f=>S.fStars.includes(f[0])).map(f=>fRow(f[0],f[1]))},
+      {title:T('Friends','好友'),rows:friendsAll.filter(f=>!S.fStars.includes(f[0])).map(f=>fRow(f[0],f[1]))},
+      {title:T('Not on the app yet','還沒裝 app'),rows:S.placeholders.map(nm=>fRow(nm,T('Placeholder · merges when they join','虛擬朋友 · 加入後自動合併'),true))}].filter(s=>s.rows.length);
+
+    const LANGS=[['system',T('Match my phone','跟隨手機'),zh?'目前為繁體中文（台灣）':'Currently English (Australia)'],['zh','繁體中文（台灣）',''],['en','English (Australia)','']];
+    const radio=(on)=>({ring:on?'var(--color-accent)':'var(--color-neutral-500)',dot:on?'var(--color-accent)':'transparent'});
+    const livingSpent=all.filter(e=>e.l==='living'&&!CAT[e.c].inc).reduce((a,e)=>a+e.m,0);
+    const startAdd=(pre)=>this.set({screen:'amount',amt:'',cur:'AUD',fixed:'living',preType:pre||null});
+
+    const F=this.feat({S,I,zh,T,go,screen,ledgers,ordered,cl,pn,goNewLedger:()=>this.set({screen:'newledger',nlReturn:null,nlName:T('Weekend in Hobart','荷巴特週末'),nlShared:true})});
+    return {...F,
+      show,ios,android:!ios,backIcon:ios?'icon-chevron-left':'icon-arrow-left',
+      statusFg:'var(--color-text)',
+      dirA:dir==='A',dirB:dir==='B',dirC:dir==='C',notB:dir!=='B',
+      mainBg:'transparent',
+      bubbleBg:panelPct>=100?'var(--color-neutral-100)':panelPct>=60?'color-mix(in srgb, var(--color-neutral-100) 70%, transparent)':'transparent',
+      bubbleBlur:panelPct>=60&&panelPct<100?'blur(12px)':'none',bubbleShadow:panelPct>=60?'var(--shadow-sm)':'none',
+      note:S.note||'',onNote:e=>this.set({note:e.target.value}),
+      scrim:`color-mix(in srgb, var(--color-bg) ${Math.max(30,Math.round(panelPct*0.62))}%, transparent)`,
+      panelOpts:[[100,T('Solid','不透明')],[60,T('Semi','半透明')],[20,T('Clear','全透明')]].map(([v,label])=>({label,bg:panelPct===v?'var(--color-text)':'transparent',fg:panelPct===v?'var(--color-bg)':'var(--color-text)',onClick:()=>this.set({panel:v})})),
+      mainRadius:dir==='A'?(firstActive?'0 28px 28px 28px':'28px'):dir==='C'?(firstActive?'28px 28px 28px 0':'28px'):'0',
+      mainMargin:'0',cardBg:panelPct>=100?'var(--color-neutral-100)':panelPct>=60?'color-mix(in srgb, var(--color-neutral-100) 70%, transparent)':'transparent',
+      tabs,led,isPersonal:!led.shared,isShared:led.shared,groups,sum,balances,ledEnded,ledOpen:!ledEnded,
+      ledMembers:(led.members||[]).map(nm=>({initial:pn(nm)[0],bg:AV[nm]})),
+      goFriends:()=>go('friends'),goSettings:()=>go('settings'),goHome:()=>go('home'),
+      goNewLedger:()=>this.set({screen:'newledger',nlReturn:null,nlName:T('Weekend in Hobart','荷巴特週末'),nlShared:true}),
+      goSettle:()=>this.set({screen:'settle',settleAmt:null}),goEnd:()=>go('end'),
+      onAdd:()=>this.set({note:'',entryDay:25,dateOpen:false,screen:'amount',amt:'',cur:led.cur,fixed:led.shared?null:led.id,preType:null}),
+      reopen:()=>{this.set({ended:S.ended.filter(x=>x!==led.id)});this.toastMsg(T(`${led.name} reopened`,`已重新開啟「${led.name}」`));},
+      goBack:()=>{const b={category:'amount',split:'amount',widgets:'settings',appearance:'settings',recurring:'home','recurring-new':'recurring',banks:'home',monthly:'home',reorder:'home','charge-notif':'home',newledger:S.nlReturn==='category'?'amount':'home'};go(b[under]||'home');},
+      closeOverlay:()=>go(OVER[screen]||'home'),
+      cur,curName,sym,amtDisplay,amtHint,keys,types,goCurrency:()=>go('currency'),
+      amtFull:fmt(cur,minor),typeLabel:isInc?T('Income','收入'):T('Expense','個人支出'),typeTagBg:isInc?'var(--color-accent-2-200)':'var(--color-accent-200)',typeTagFg:isInc?'var(--color-accent-2-800)':'var(--color-accent-800)',
+      isI:I,pick,savePick,dateOpen,dateChip:dayLabel(entryDay),dateChipBg:entryDay===25?'var(--color-surface)':'var(--color-accent-200)',dateChipFg:entryDay===25?'var(--color-text)':'var(--color-accent-900)',
+      toggleDate:()=>this.set({dateOpen:!S.dateOpen}),
+      quickDays:[[25,T('Today','今天')],[24,T('Yesterday','昨天')]].map(([d,label])=>({label,bg:entryDay===d?'var(--color-text)':'var(--color-bg)',fg:entryDay===d?'var(--color-bg)':'var(--color-text)',onClick:()=>this.set({entryDay:d,dateOpen:false})})),
+      weekHead:zh?WD_ZH:['S','M','T','W','T','F','S'],
+      calDays:[...Array(new Date(2026,9,1).getDay()).fill(0),...Array.from({length:31},(_,i)=>i+1)].map(d=>({label:d?String(d):'',bg:d===entryDay?'var(--color-accent)':'transparent',fg:d===entryDay?'var(--color-bg)':(d===25?'var(--color-accent-700)':'var(--color-text)'),op:d>25?0.3:1,onClick:()=>{ if(d&&d<=25) this.set({entryDay:d,dateOpen:false}); }})),
+      ledgerLabel:`${ledL.name} · ${ledL.cur}`,openRoute:()=>pl.length>1&&go('route'),cats,
+      routeTitle:T(`Which ${cur} ledger?`,`要記到哪個 ${cur} 帳本？`),routeRows,routeNew,routeNewLabel:T(`New ${cur} ledger`,`新增 ${cur} 帳本`),
+      q:S.q,onQ:e=>this.set({q:e.target.value}),curSections,
+      splitKinds:[['expense',T('Cost','支出')],['income',T('Income','收入')]].map(([id,label])=>({label,bg:S.splitKind===id?'var(--color-text)':'transparent',fg:S.splitKind===id?'var(--color-bg)':'var(--color-text)',onClick:()=>this.set({splitKind:id,splitCat:null})})),
+      splitLedgerLabel:sl?`${sl.name} · ${sl.cur}`:T(`No shared ${cur} ledger yet`,`還沒有 ${cur} 分帳帳本`),
+      splitMembers:members.map(nm=>{const on=!S.splitOut.includes(nm);return {name:pn(nm),initial:pn(nm)[0],av:AV[nm],bg:on?'var(--color-accent-2-200)':'transparent',border:on?'transparent':'var(--color-divider)',op:on?1:0.6,icon:on?'icon-check':'icon-plus',
+        onClick:()=>{ if(on&&inMem.length<=1) return; this.set({splitOut:on?[...S.splitOut,nm]:S.splitOut.filter(x=>x!==nm)}); }};}),
+      payer:pn(S.payer),payerVerb:sInc?T('Received by','收款人'):T('Paid by','付款人'),
+      cyclePayer:()=>{ if(!members.length) return; const i=members.indexOf(S.payer); this.set({payer:members[(i+1)%members.length]}); },
+      splitOpen:S.splitOpen,toggleSplitOpen:()=>this.set({splitOpen:!S.splitOpen}),splitChevron:S.splitOpen?'icon-chevron-up':'icon-chevron-down',
+      shares,remNote:rem?(zh?`均分後多出 ${fmt(cur,rem)}，由前 ${rem} 位各多分 1 ${dec?'分':'元'}。`:`${fmt(cur,rem)} left over after splitting, so the first ${rem>1?rem+' people pay':'person pays'} one ${dec?'cent':'unit'} more.`):'',splitCats,
+      submitSplit:()=>{ if(!I||!sl) return; const myI=inMem.indexOf('You'); const myShare=myI<0?0:base+(myI<rem?1:0);
+        this.setState({note:'',extra:[{l:sl.id,d:'25',c:S.splitCat||(sInc?'other_in':'other'),m:minor,note:(S.note||'').trim(),payer:S.payer,share:myShare},...S.extra],tab:sl.id,screen:'home'});
+        this.toastMsg(T(`Added to ${sl.name} · ${sl.members.filter(x=>x!=='You').join(' & ')} can see it`,`已加到「${sl.name}」· ${sl.members.filter(x=>x!=='You').join('、')} 都看得到`)); },
+      nlName:(zh&&S.nlName==='Weekend in Hobart')?'荷巴特週末':S.nlName,onNlName:e=>this.set({nlName:e.target.value}),nlShared:S.nlShared,
+      nlKinds:[[false,T('Personal','個人'),T('Only you','只有自己')],[true,T('Shared','分帳'),T('With friends','和好友共用')]].map(([v,label,sub])=>({label,sub,bg:S.nlShared===v?'var(--color-text)':'var(--color-surface)',fg:S.nlShared===v?'var(--color-bg)':'var(--color-text)',onClick:()=>this.set({nlShared:v})})),
+      nlCur:S.nlCur,nlCurName:zh?CUR_ZH[S.nlCur]:nlCurL[1],cycleNlCur:()=>{const i=S.stars.indexOf(S.nlCur);this.set({nlCur:S.stars[(i+1)%S.stars.length]||'AUD'});},
+      nlMembers,nlShares:NLS.map(([id,label])=>({label,...radio(S.nlShare===id),onClick:()=>this.set({nlShare:id})})),
+      createLedger:()=>{ if(!I) return; const id='n'+Date.now(); const l={id,name:S.nlName||T('Untitled','未命名'),cur:S.nlCur,shared:S.nlShared,members:S.nlShared?['You',...S.nlMembers]:undefined};
+        if(S.nlReturn==='category'&&!l.shared){ this.setState({added:[...S.added,l],ledger:id,fixed:id,screen:'category',cur:l.cur}); }
+        else this.setState({added:[...S.added,l],tab:id,screen:'home'});
+        this.toastMsg(T(`${l.name} · ${l.cur} created`,`已建立「${l.name} · ${l.cur}」`)); },
+      friendSections,copyInvite:()=>this.toastMsg(T('Invite link copied','已複製邀請連結')),showQr:()=>this.toastMsg(T('Showing your QR code','顯示你的 QR code')),
+      addPlaceholder:()=>{ this.set({placeholders:[...S.placeholders,'Sam']}); },
+      settle,confirmSettle:()=>{ if(!I) return; if(!settle.key||!settle.enteredM) return go('home'); const k=settle.key, pk=led.id+':'+k;
+        if(!settle.isFull){ this.setState({paid:{...paid,[pk]:(paid[pk]||0)+settle.enteredM},settleAmt:null,screen:'home'}); return this.toastMsg(T(`Recorded ${fmt(led.cur,settle.enteredM)} · ${fmt(led.cur,sb.m-settle.enteredM)} still owed`,`已記錄 ${fmt(led.cur,settle.enteredM)} · 還剩 ${fmt(led.cur,sb.m-settle.enteredM)}`)); }
+        this.setState({settled:[...S.settled,pk],settleWith:null,settleAmt:null,screen:'home'}); this.toastMsg(settle.owe?T(`Repayment recorded · settled with ${k}`,`已記錄還款 · 與 ${k} 結清`):T(`Recorded for ${k} · ${k} has been notified`,`已幫 ${k} 代記 · 已通知 ${k}`)); },
+      endAdd:()=>{ if(!I) return; this.setState({ended:[...S.ended,'japan'],extra:[{l:'yen',d:'25',c:'travel',m:18400,note:'Japan Trip · my share'},...S.extra],screen:'home'}); this.toastMsg(T('Japan Trip ended · ¥18,400 added','日本旅行已結束 · 已加入 ¥18,400')); },
+      endOnly:()=>{ if(!I) return; this.setState({ended:[...S.ended,'japan'],screen:'home'}); this.toastMsg(T('Japan Trip ended','日本旅行已結束')); },
+      langs:LANGS.map(([id,label,sub])=>({label,sub,...radio(S.lang===id),onClick:()=>this.set({lang:id})})),
+      dateFmt:zh?'2026/10/25':'25/10/2026',
+      settingRows:[['icon-palette',T('Appearance','外觀'),(zh?BG_ZH[this.bgId()]:(BGS.find(x=>x[0]===this.bgId())||BGS[0])[1])+' · '+(zh?TH_ZH[this.themeId()]:(THEMES.find(x=>x[0]===this.themeId())||THEMES[0])[1]),()=>go('appearance')],['icon-star',T('Starred currencies','常用幣別'),S.stars.join(', '),()=>{}],['icon-users',T('Friends','好友'),String(3+S.placeholders.length),()=>go('friends')],['icon-layout-grid',T('Home screen widgets','桌面小工具'),'',()=>go('widgets')],['icon-bell',T('Notifications','通知'),T('Charges, instalments, bank','扣款、分期、銀行'),()=>go('charge-notif')],['icon-circle-user',T('Account','帳號'),ios?'Apple':'Google',()=>{}]].map(([icon,label,value,onClick])=>({icon,label,value,onClick})),
+      widgetSpent:fmt('AUD',livingSpent),widgetAdd:()=>startAdd(),
+      widgetShortcuts:TY.map(([id,label,icon])=>({label,icon,onClick:()=>startAdd(id)})),
+      controlLabel:ios?T('Control Centre button','控制中心按鈕'):T('Quick Settings tile','快速設定磚塊'),
+      toast:S.toast,
+      L:{month:T('October 2026','2026 年 10 月'),monthShort:T('October 2026','2026 年 10 月'),myLedgers:T('My ledgers','我的帳本'),spentIn:T('Spent in October','十月支出'),spent:T('Spent','支出'),income:T('Income','收入'),balance:T('Balance','結餘'),endedRO:T('Ended · read-only','已結束 · 唯讀'),reopen:T('Reopen','重新開啟'),settleUp:T('Settle up','結清'),endLedger:T('End ledger','結束帳本'),addEntry:T('Add entry','記一筆'),newEntry:T('New entry','記一筆'),category:T('Category','類別'),savingTo:T('Saving to','記到'),change:T('Change','更改'),today:T('Today','今天'),addNote:T('Add note','加備註'),tapToSave:T('Pick a category. You can add a note next.','選一個類別，下一步可以加備註。'),changeCat:T('Change category','換類別'),save:T('Save','儲存'),notePh:T('Note · optional','備註 · 選填'),split:T('Split','分帳'),onlyOne:T('Only one','唯一'),splitWith:T('Split with','一起分的人'),shares:T('Shares','分配'),splitEqually:T('Split equally','均分'),catOptional:T('Category · optional','類別 · 可略過'),addSplit:T('Add split','送出分帳'),newLedger:T('New ledger','新增帳本'),name:T('Name','名稱'),type:T('Type','類型'),currency:T('Currency','幣別'),curLocked:T("Currency can't be changed after the ledger is created.",'建立後就不能更改幣別。'),members:T('Members','成員'),yourShare:T('Your share','自己分到的部分'),eachSets:T('Each member sets this for themselves.','每位成員各自設定。'),createLedger:T('Create ledger','建立帳本'),friends:T('Friends','好友'),invite:T('Invite a friend','邀請好友'),inviteBody:T("Send a link or show your QR code. Once they sign in, you're friends.",'傳送連結或出示 QR code，對方登入後就成為好友。'),shareLink:T('Share link','分享連結'),addPh:T('Add placeholder friend','新增虛擬朋友'),settings:T('Settings','設定'),language:T('Language','語言'),langNote:T('Phones set to another language use English (Australia). Ledger names and notes are never translated.','手機是其他語言時會使用 English (Australia)。帳本名稱和備註不會翻譯。'),formats:T('Formats','格式'),date:T('Date','日期'),amounts:T('Amounts','金額'),appearance:T('Appearance','外觀'),bgColour:T('Background colour','背景顏色'),accent:T('Accent colour · buttons and highlights','選項顏色 · 按鈕與重點'),homeBg:T('Home background','首頁背景'),preview:T('Preview','預覽'),usePhoto:T('Use this photo','使用這張照片'),cancel:T('Cancel','取消'),remove:T('Remove','移除'),panel:T('Panel transparency','透明度'),panelNote:T('Applies to the bubbles. Semi frosts what sits behind them; Clear keeps only the outline so your photo shows through.','套用在每個泡泡上。半透明會把後面霧化；全透明只留外框，照片完整透出來。'),done:T('Done','完成'),search:T('Search code or name','搜尋代碼或名稱'),routeSub:T('You have more than one personal ledger in this currency.','這個幣別有不只一個個人帳本。'),noLedger:T(`No ${cur} ledger yet. Create one?`,`還沒有 ${cur} 帳本，要建立嗎？`),comeBack:T("You'll come straight back to finish this entry.",'建好後會直接回來完成這筆。'),notNow:T('Not now','先不要'),createCur:T(`Create ${cur} ledger`,`建立 ${cur} 帳本`),youPayAmy:T('You pay Amy','你付給 Amy'),settleBody:T('Records a repayment in Japan Trip and brings your balance with Amy to ¥0. Amy sees it straight away.','在「日本旅行」記一筆還款，你和 Amy 的結餘歸零，Amy 馬上看得到。'),recordRepay:T('Record repayment','記錄還款'),endTitle:T('End Japan Trip?','要結束「日本旅行」嗎？'),endBody1:T('Your share of this ledger is ','你在這個帳本分到 '),endBody2:T('. Add it to your personal ledger ','，要加到個人帳本 '),endBody3:T('?','嗎？'),yenWallet:T('Yen Wallet','日圓錢包'),addAndEnd:T('Add and end','加入並結束'),endOnly:T('End without adding','結束，不加入'),endedNote:T('Ended ledgers become read-only and move to the end of your tabs. You can reopen them anytime.','結束後帳本變成唯讀並移到分頁最後，隨時可以重新開啟。'),widgetTitle:T('October · Living','十月 · 生活'),spentLower:T('spent','支出')},
+      rootRef:this.rootRef,photo,hasPhoto:!!photo,noPhoto:!photo,homePhoto:!!photo&&show.home,
+      photoBtn:photo?T('Change photo','更換照片'):T('Choose photo','選擇照片'),
+      onPhoto:e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f||!I) return; const r=new FileReader(); r.onload=()=>this.setState({pending:r.result}); r.readAsDataURL(f); },
+      hasPending:!!pending,noPending:!pending,previewPhoto:pending||photo,noPreview:!(pending||photo),
+      confirmPhoto:()=>{ if(!I) return; this.setState({photo:S.pending,pending:''}); this.toastMsg(T('Home background updated','已更新首頁背景')); },
+      cancelPhoto:()=>this.set({pending:''}),
+      removePhoto:()=>this.set({photo:''}),
+      bgs:BGS.map(([id,label,h])=>{const on=this.bgId()===id;return {label:zh?BG_ZH[id]:label,on,color:`oklch(0.945 0.03 ${h})`,ring:on?'0 0 0 3px var(--color-surface), 0 0 0 5px var(--color-text)':'inset 0 0 0 1px var(--color-divider)',onClick:()=>this.set({bg:id})};}),
+      themes:THEMES.map(([id,label,h])=>{const on=this.themeId()===id;return {label:zh?TH_ZH[id]:label,on,color:`oklch(0.66 0.15 ${h})`,ring:on?'0 0 0 3px var(--color-surface), 0 0 0 5px var(--color-text)':'none',onClick:()=>this.set({theme:id})};})
+    };
+  }
+}
+</script>
+</body>
+</html>

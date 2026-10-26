@@ -1,0 +1,234 @@
+import type { Entry, Ledger, LedgerPref, UserProfile } from '@/lib/domain';
+
+import type { LocalStore } from '../local/LocalStore';
+import { enqueueOp, opRowKey, type Op } from '../local/ops';
+
+export type PushResult = { status: 'ok' } | { status: 'retry' } | { status: 'rejected'; error: unknown };
+
+export type PulledEntry = Entry & { deleted: boolean };
+
+export type PullResult = {
+  profile: UserProfile | null;
+  ledgers: Ledger[];
+  prefs: Record<string, LedgerPref>;
+  /** Entries changed since the cursor, including deletions. */
+  entries: PulledEntry[];
+  cursor: string;
+};
+
+/** The server side of sync. SupabaseRemote in the app, a fake in tests. */
+export interface RemoteApi {
+  push(op: Op): Promise<PushResult>;
+  pull(cursor: string | null): Promise<PullResult>;
+  /** Calls `onChange` when another device changes data. Returns unsubscribe. */
+  subscribe(onChange: () => void): () => void;
+}
+
+/** Something that should make the engine sync now (back online, app in foreground). */
+export type SyncTrigger = (fire: () => void) => () => void;
+
+const MAX_BACKOFF_MS = 30_000;
+
+/**
+ * Keeps a LocalStore in step with the server:
+ * - writes go to the outbox and are sent in order; offline they wait and retry
+ * - a rejected write (e.g. not allowed) is dropped, reported, and the server copy is pulled back
+ * - pulls never overwrite rows that still have unsent changes
+ */
+export class SyncEngine {
+  private flushing: Promise<void> | null = null;
+  private pulling: Promise<void> | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private failures = 0;
+  private stopped = false;
+  /** Next pull downloads everything instead of changes since the cursor. */
+  private needFullPull = false;
+  private cleanups: (() => void)[] = [];
+  private readyListeners = new Set<(ready: boolean) => void>();
+  private _ready: boolean;
+
+  constructor(
+    private store: LocalStore,
+    private remote: RemoteApi,
+    private options: {
+      newId: () => string;
+      onError: (error: unknown) => void;
+      triggers?: SyncTrigger[];
+    },
+  ) {
+    // A device that has synced before can show its local copy straight away.
+    this._ready = store.sync.cursor !== null;
+  }
+
+  get ready() {
+    return this._ready;
+  }
+
+  subscribeReady(cb: (ready: boolean) => void): () => void {
+    this.readyListeners.add(cb);
+    cb(this._ready);
+    return () => {
+      this.readyListeners.delete(cb);
+    };
+  }
+
+  start() {
+    const now = () => void this.syncNow();
+    this.cleanups.push(this.remote.subscribe(() => void this.pull()));
+    for (const trigger of this.options.triggers ?? []) this.cleanups.push(trigger(now));
+    now();
+  }
+
+  stop() {
+    this.stopped = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.cleanups.forEach((c) => c());
+    this.cleanups = [];
+  }
+
+  enqueue(op: Op) {
+    this.store.setOutbox(enqueueOp(this.store.outbox, op, this.options.newId()));
+    void this.flush();
+  }
+
+  /** Send pending writes, then fetch what changed. */
+  async syncNow() {
+    await this.flush();
+    await this.pull();
+  }
+
+  flush(): Promise<void> {
+    if (!this.flushing) {
+      this.flushing = this.runFlush().finally(() => {
+        this.flushing = null;
+      });
+    }
+    return this.flushing;
+  }
+
+  pull(): Promise<void> {
+    if (!this.pulling) {
+      this.pulling = this.runPull().finally(() => {
+        this.pulling = null;
+      });
+    }
+    return this.pulling;
+  }
+
+  private async runFlush() {
+    let rejected = false;
+    while (!this.stopped && this.store.outbox.length > 0) {
+      const op = this.store.outbox[0];
+      let result: PushResult;
+      try {
+        result = await this.remote.push(op);
+      } catch {
+        result = { status: 'retry' };
+      }
+      if (result.status === 'retry') {
+        this.scheduleRetry();
+        break;
+      }
+      this.failures = 0;
+      // Remove by id: new ops may have been queued (or folded into others) meanwhile.
+      this.store.setOutbox(this.store.outbox.filter((q) => q.opId !== op.opId));
+      if (result.status === 'rejected') {
+        rejected = true;
+        this.options.onError(result.error);
+      }
+    }
+    // The local copy now has a change the server refused: take the server's version back.
+    if (rejected) {
+      this.needFullPull = true;
+      await this.pull();
+    }
+  }
+
+  private async runPull() {
+    if (this.stopped) return;
+    const full = this.needFullPull || this.store.sync.cursor === null;
+    this.needFullPull = false;
+    let result: PullResult;
+    try {
+      result = await this.remote.pull(full ? null : this.store.sync.cursor);
+    } catch {
+      if (full) this.needFullPull = true;
+      // Offline or server error: keep showing the local copy.
+      this.setReady();
+      return;
+    }
+    if (this.stopped) return;
+    const prev = this.store.state;
+    const next = mergePull(prev, result, this.pendingKeys(), full);
+    // Only rewrite the entry lists that actually changed.
+    const changed = Object.keys(next.entries).filter((id) => next.entries[id] !== prev.entries[id]);
+    this.store.update(next, { meta: true, ledgers: changed });
+    this.store.setSync({ cursor: result.cursor });
+    this.setReady();
+  }
+
+  private pendingKeys(): Set<string> {
+    return new Set(this.store.outbox.map(opRowKey));
+  }
+
+  private scheduleRetry() {
+    if (this.retryTimer || this.stopped) return;
+    this.failures += 1;
+    const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** (this.failures - 1));
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      void this.syncNow();
+    }, delay);
+  }
+
+  private setReady() {
+    if (this._ready) return;
+    this._ready = true;
+    this.readyListeners.forEach((l) => l(true));
+  }
+}
+
+/**
+ * Combines the local copy with what the server sent. Rows with unsent local
+ * changes (`pending`, keyed by opRowKey) keep the local version. A `full` pull
+ * holds every live entry, so local entries missing from it are dropped.
+ */
+export function mergePull(
+  local: LocalStore['state'],
+  pulled: PullResult,
+  pending: Set<string>,
+  full = false,
+): LocalStore['state'] {
+  const localLedgerById = new Map(local.ledgers.map((l) => [l.id, l]));
+  const serverIds = new Set(pulled.ledgers.map((l) => l.id));
+  const ledgers = [
+    ...pulled.ledgers.map((l) => (pending.has(`ledger:${l.id}`) ? (localLedgerById.get(l.id) ?? l) : l)),
+    // Created here but not on the server yet.
+    ...local.ledgers.filter((l) => !serverIds.has(l.id) && pending.has(`ledger:${l.id}`)),
+  ];
+  const keep = new Set(ledgers.map((l) => l.id));
+
+  const prefs: Record<string, LedgerPref> = {};
+  for (const id of keep) {
+    const p = pending.has(`pref:${id}`)
+      ? (local.prefs[id] ?? pulled.prefs[id])
+      : (pulled.prefs[id] ?? local.prefs[id]);
+    if (p) prefs[id] = p;
+  }
+
+  // Lists without changes keep their identity, so screens and storage skip them.
+  const entries: Record<string, Entry[]> = {};
+  for (const id of keep) {
+    const list = local.entries[id] ?? [];
+    entries[id] = full ? list.filter((e) => pending.has(`entry:${e.id}`)) : list;
+  }
+  for (const { deleted, ...entry } of pulled.entries) {
+    if (pending.has(`entry:${entry.id}`) || !entries[entry.ledgerId]) continue;
+    const list = entries[entry.ledgerId].filter((x) => x.id !== entry.id);
+    if (!deleted) list.push(entry);
+    entries[entry.ledgerId] = list;
+  }
+
+  const profile = pending.has('profile') || !pulled.profile ? local.profile : pulled.profile;
+  return { profile, ledgers, prefs, entries };
+}
