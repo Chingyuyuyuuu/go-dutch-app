@@ -14,6 +14,73 @@
 
 ---
 
+## 2026-10-28｜Phase 6：匯率與類別組的資料庫、同步；修正 CI 的資料庫測試
+
+**階段**：Phase 6
+
+**檢查開發者的 commit**：`7ac7cd7 phase 6` 包含上一次的 16 個檔案，已和 GitHub 同步。
+
+**修正 CI**：
+- 問題：GitHub Actions 的「Deploy web」從之前就一直失敗，卡在 `npm run test:db`。
+- 原因：`node --test supabase/tests/` 傳的是資料夾，Node 24（CI 和這台電腦都是）會把它當成檔案執行。
+- 修正：改成 `node --test "supabase/tests/*.test.mjs"`，由 Node 自己展開，Windows 和 Linux 都適用。
+- 注意：CI 接下來會跑到部署那一步，還需要 GitHub Secret `EXPO_TOKEN`（見 todo）。
+
+**做了什麼**：
+- 新的 migration `20261030000000_fx_categories.sql`：
+  - `ledgers`：`entry_currency`、`category_set`（舊帳本補 `au_life`，新帳本預設 `japan_travel`）、`rates`（格式檢查）。
+  - `entries`：`currency`、`fx_rate`、`fx_source`（same / ledger / manual / split）、`amount_settle_minor`、`shares_settle`。
+    - 舊資料補成同幣別。補的時候關掉 trigger，所以不會寫修改歷史，也不會讓所有裝置重新下載。
+  - `guard_entry_write`：
+    - 漏填的欄位補成同幣別。
+    - 每次都用匯率**重算並覆蓋**換算金額與 `shares_settle`，不檢查、也不拒絕。
+    - `split` 只能用在伺服器建立的個人帳本那筆；外幣不能標 `same`；還款只能用結算幣別。
+  - SQL 函式：`currency_minor_units`、`convert_minor`、`allocate_settle`，和手機端的算法一樣。
+  - `profiles.last_ledger_id`、`ledger_prefs.share_target_ledger_id`。
+  - `personal_ledger_for` 的順序：自己選的 → 上次用的 → 舊欄位 → 最早建立的，都必須是同結算幣別的個人帳本。
+  - `sync_personal_copies`：計入個人帳本的那筆帶上原幣別與匯率，換算金額取自己的 `shares_settle`，標成 `split`。
+  - `create_shared_ledger` 收類別組、常用記帳幣別、匯率。
+  - `record_due_recurring` 不用改：它不帶新欄位，guard 會自動補上。
+- 手機端：
+  - `Entry`、`Ledger`、`LedgerPref`、`UserProfile` 加上新欄位。換算欄位設成可省略，沒有值就當作同幣別，所以舊的本機資料不用轉換。
+  - `settlementFor`：規則和伺服器 guard 相同。
+  - `allocateSettle` 同餘數時改成依成員編號的字元順序，和 SQL 一致。
+  - LocalRepo：新增和修改紀錄時算好換算欄位。同幣別的紀錄不上傳換算欄位；外幣（或原本是外幣）的才上傳；換算後金額永遠不上傳。
+  - SupabaseRemote：
+    - 帳本、偏好設定改成讀 `*`，伺服器有沒有新欄位都能同步。
+    - 新欄位的對應；帳本設定只有和預設不同時才上傳。
+  - 本月摘要、每月檢查、銀行對帳、分帳結餘、結束帳本「你分到」改用換算後金額。目前沒有外幣紀錄，所以數字和以前一樣。
+  - 試用模式的「計入個人帳本」也照伺服器的規則。
+
+**決定**（寫進 spec §6A.5、§13.6）：
+- 伺服器重算並覆蓋換算結果，不採用手機送來的數字。
+- 同餘數時，成員編號（字元順序）小的先。
+
+**新增套件**：無
+
+**驗證**：
+- `npm run typecheck`、`npm run lint`：通過。改過的檔案跑 prettier 也通過。
+- `npm test`：182 項通過，新增 16 項：
+  - `settlementFor`。
+  - 上傳格式：外幣帶幣別與匯率、不帶換算金額；帳本只帶非預設值。
+  - 下載：有和沒有 Phase 6 欄位都測。
+  - LocalRepo：同幣別不帶欄位、外幣改回台幣也會上傳。
+  - 加總改用換算後金額。
+- `npm run test:db`：68 項通過，新增 14 項：
+  - SQL 和 JS 算出一樣的數字。
+  - 匯率格式檢查、舊 App 漏填、伺服器覆蓋錯的換算金額、舊 App 只改金額也重算。
+  - 偽造 `split` 被拒絕。
+  - 計入個人帳本的那筆：幣別、匯率、`shares_settle`、選哪個帳本。
+  - 在舊資料庫上套用：舊帳本變 `au_life`、舊紀錄補值、`updated_at` 不變。
+- `npx expo export --platform web`：打包成功。
+- 沒有在瀏覽器看畫面：畫面沒有改，數字也一樣。
+
+**待處理／問題**：
+- 👤 在 Supabase 執行新的 SQL（todo.md）。
+- 下一步：帳本路由改版、新增帳本的結算幣別／常用記帳幣別／帳本匯率、記一筆的換算列與 ⓘ 表單、台幣顯示到元。
+
+---
+
 ## 2026-10-28｜Phase 6 開始：日本旅遊類別、匯率換算與取整的純函式
 
 **階段**：Phase 6

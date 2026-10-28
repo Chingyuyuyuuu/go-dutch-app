@@ -1,6 +1,6 @@
 import { isIncomeCategory } from './categories';
 import type { LocalDate } from './date';
-import type { Entry, Ledger, LedgerPref } from './domain';
+import { settledAmount, type Entry, type Ledger, type LedgerPref } from './domain';
 import type { MinorUnits } from './money';
 
 /**
@@ -68,8 +68,8 @@ export function summarise(entries: Entry[]): Summary {
   let spent = 0;
   let income = 0;
   for (const e of entries) {
-    if (e.type === 'income') income += e.amountMinor;
-    else if (e.type === 'expense') spent += e.amountMinor;
+    if (e.type === 'income') income += settledAmount(e);
+    else if (e.type === 'expense') spent += settledAmount(e);
   }
   return { spent, income, balance: income - spent };
 }

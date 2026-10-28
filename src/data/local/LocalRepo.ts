@@ -1,21 +1,24 @@
 import { addCheck } from '@/lib/banks';
+import { DEFAULT_CATEGORY_SET } from '@/lib/categories';
 import { todayLocal, type LocalDate } from '@/lib/date';
 import {
+  entryCurrency,
   memberForUid,
   PERSONAL_ENTRY_FIELDS,
+  settledShares,
   type BalanceCheck,
   type BankAccount,
   type Entry,
   type Ledger,
   type LedgerMember,
   type LedgerPref,
-  type LedgerStatus,
   type NewEntry,
   type NewRecurring,
   type PlaceholderFriend,
   type Recurring,
   type UserProfile,
 } from '@/lib/domain';
+import { settlementFor } from '@/lib/fx';
 import { personalLedgersFor } from '@/lib/ledgers';
 import { chargesBefore, dueCharges, recurringSplitShares } from '@/lib/recurring';
 
@@ -23,7 +26,7 @@ import type { DataRepo, FriendsState, NewLedger, NewMember, Unsubscribe } from '
 import type { MediaStore } from '../supabase/photos';
 import type { SyncEngine } from '../sync/SyncEngine';
 import type { LocalState, LocalStore } from './LocalStore';
-import type { BankPatch, Op, RecurringPatch } from './ops';
+import type { BankPatch, LedgerPatch, Op, RecurringPatch } from './ops';
 
 /**
  * Screens read and write the device's local copy. In cloud mode every write is
@@ -155,6 +158,9 @@ export class LocalRepo implements DataRepo {
       id,
       name: input.name,
       currency: input.currency,
+      entryCurrency: input.entryCurrency ?? null,
+      categorySet: input.categorySet ?? DEFAULT_CATEGORY_SET,
+      rates: input.rates ?? {},
       kind: input.kind,
       status: 'active',
       ownerUid: this.uid,
@@ -182,7 +188,7 @@ export class LocalRepo implements DataRepo {
     return id;
   }
 
-  updateLedger(ledgerId: string, patch: { name?: string; status?: LedgerStatus }) {
+  updateLedger(ledgerId: string, patch: LedgerPatch) {
     this.setLedger(ledgerId, (l) => ({ ...l, ...patch }));
     this.queue({ kind: 'updateLedger', ledgerId, patch });
   }
@@ -237,7 +243,7 @@ export class LocalRepo implements DataRepo {
   addEntry(ledgerId: string, input: NewEntry): string {
     const id = this.newId();
     const now = Date.now();
-    const entry: Entry = {
+    const entry = this.settled(ledgerId, {
       ...PERSONAL_ENTRY_FIELDS,
       ...input,
       id,
@@ -246,23 +252,31 @@ export class LocalRepo implements DataRepo {
       lastEditedBy: this.uid,
       createdAt: now,
       updatedAt: now,
-    };
+    });
     this.setEntries(ledgerId, (list) => [entry, ...list]);
-    this.queue({ kind: 'insertEntry', entry });
+    this.queue({ kind: 'insertEntry', entry: entry.fxSource === 'same' ? withoutFx(entry) : entry });
     this.demoSyncMyCopy(entry);
     return id;
   }
 
   updateEntry(ledgerId: string, entryId: string, patch: Partial<NewEntry>) {
+    let previous: Entry | undefined;
     let updated: Entry | undefined;
     this.setEntries(ledgerId, (list) =>
       list.map((e) => {
         if (e.id !== entryId) return e;
-        updated = { ...e, ...patch, lastEditedBy: this.uid, updatedAt: Date.now() };
+        previous = e;
+        updated = this.settled(ledgerId, { ...e, ...patch, lastEditedBy: this.uid, updatedAt: Date.now() });
         return updated;
       }),
     );
-    this.queue({ kind: 'updateEntry', ledgerId, entryId, patch });
+    // Conversion fields travel only while the entry is (or was) in another currency.
+    const foreign = [previous?.fxSource, updated?.fxSource].some((s) => s !== undefined && s !== 'same');
+    const remotePatch: Partial<NewEntry> =
+      foreign && updated
+        ? { ...patch, currency: updated.currency, fxRate: updated.fxRate, fxSource: updated.fxSource }
+        : withoutFx(patch);
+    this.queue({ kind: 'updateEntry', ledgerId, entryId, patch: remotePatch });
     if (updated) this.demoSyncMyCopy(updated);
   }
 
@@ -461,6 +475,12 @@ export class LocalRepo implements DataRepo {
     );
   }
 
+  /** The entry with its conversion fields filled in for its ledger (the server recalculates them too). */
+  private settled(ledgerId: string, entry: Entry): Entry {
+    const ledger = this.ledger(ledgerId);
+    return ledger ? { ...entry, ...settlementFor(entry, ledger.currency) } : entry;
+  }
+
   private setEntries(ledgerId: string, change: (list: Entry[]) => Entry[]) {
     this.store.update(
       {
@@ -490,18 +510,27 @@ export class LocalRepo implements DataRepo {
       if (existing) this.setEntries(existing.ledgerId, (list) => list.filter((e) => e.id !== existing.id));
       return;
     }
+    // Same order as the server's personal_ledger_for.
+    const candidates = personalLedgersFor(ledger.currency, this.state.ledgers).map((l) => l.id);
     const target =
       existing?.ledgerId ??
-      this.state.profile.lastUsedLedger[ledger.currency] ??
-      personalLedgersFor(ledger.currency, this.state.ledgers)[0]?.id;
-    if (!target || !personalLedgersFor(ledger.currency, this.state.ledgers).some((l) => l.id === target))
-      return;
-    const copy: Entry = {
+      [
+        this.state.prefs[ledger.id]?.shareTargetLedgerId,
+        this.state.profile.lastLedgerId,
+        this.state.profile.lastUsedLedger[ledger.currency],
+      ].find((id) => id && candidates.includes(id)) ??
+      candidates[0];
+    if (!target || !candidates.includes(target)) return;
+    const copy = this.settled(target, {
       ...PERSONAL_ENTRY_FIELDS,
       id: existing?.id ?? this.newId(),
       ledgerId: target,
       type: shared.type,
       amountMinor: share,
+      currency: entryCurrency(shared, ledger),
+      fxRate: shared.fxRate ?? '1',
+      fxSource: 'split',
+      amountSettleMinor: settledShares(shared)?.[me?.id ?? ''] ?? share,
       categoryCode: shared.categoryCode,
       date: shared.date,
       note: shared.note,
@@ -511,9 +540,17 @@ export class LocalRepo implements DataRepo {
       lastEditedBy: this.uid,
       createdAt: shared.createdAt,
       updatedAt: Date.now(),
-    };
+    });
     this.setEntries(target, (list) => [copy, ...list.filter((e) => e.id !== copy.id)]);
   }
+}
+
+/**
+ * Without the conversion fields. Entries paid in the settlement currency don't send them, so a
+ * server without the Phase 6 migration keeps syncing; the server fills in "same currency" itself.
+ */
+function withoutFx<T extends Partial<NewEntry>>(entry: T): T {
+  return { ...entry, currency: undefined, fxRate: undefined, fxSource: undefined };
 }
 
 function activeUids(members: LedgerMember[]): string[] {

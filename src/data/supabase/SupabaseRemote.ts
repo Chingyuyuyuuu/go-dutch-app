@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { isCategoryCode } from '@/lib/categories';
+import { DEFAULT_CATEGORY_SET, isCategoryCode, isCategorySet } from '@/lib/categories';
 import {
   ACCENT_THEMES,
   BG_THEMES,
@@ -10,6 +10,7 @@ import {
   type BalanceCheck,
   type Entry,
   type EntryType,
+  type FxSource,
   type Friend,
   type Invite,
   type Ledger,
@@ -24,7 +25,9 @@ import {
 } from '@/lib/domain';
 import { FREQUENCIES } from '@/lib/recurring';
 
-import type { BankPatch, Op, RecurringPatch } from '../local/ops';
+import { normaliseRate } from '@/lib/fx';
+
+import type { BankPatch, LedgerPatch, Op, RecurringPatch } from '../local/ops';
 import type { AcceptInviteResult, PulledEntry, PullResult, PushResult, RemoteApi } from '../sync/SyncEngine';
 
 // All columns: a server one migration behind (or ahead) still syncs.
@@ -78,6 +81,11 @@ export class SupabaseRemote implements RemoteApi {
           kind: l.kind,
           status: l.status,
           created_at: new Date(l.createdAt).toISOString(),
+          // Phase 6 settings only when they differ from the server's defaults, so a server without
+          // the Phase 6 migration still accepts the ledger.
+          ...(l.entryCurrency && { entry_currency: l.entryCurrency }),
+          ...(l.categorySet && l.categorySet !== DEFAULT_CATEGORY_SET && { category_set: l.categorySet }),
+          ...(l.rates && Object.keys(l.rates).length > 0 && { rates: l.rates }),
         });
       }
       case 'createSharedLedger': {
@@ -88,6 +96,10 @@ export class SupabaseRemote implements RemoteApi {
             name: l.name,
             currency: l.currency,
             createdAt: new Date(l.createdAt).toISOString(),
+            // Ignored by a server without the Phase 6 migration.
+            entryCurrency: l.entryCurrency ?? null,
+            categorySet: l.categorySet ?? DEFAULT_CATEGORY_SET,
+            rates: l.rates ?? {},
           },
           p_members: l.members.map(memberArg),
         });
@@ -98,7 +110,7 @@ export class SupabaseRemote implements RemoteApi {
           p_members: op.members.map(memberArg),
         });
       case 'updateLedger':
-        return sb.from('ledgers').update(op.patch).eq('id', op.ledgerId);
+        return sb.from('ledgers').update(ledgerRow(op.patch)).eq('id', op.ledgerId);
       case 'leaveLedger':
         return sb.rpc('leave_ledger', { p_ledger_id: op.ledgerId });
       case 'ledgerPref':
@@ -109,6 +121,9 @@ export class SupabaseRemote implements RemoteApi {
             starred: op.pref.starred,
             sort_order: op.pref.order,
             ...(op.pref.shareHandling && { share_handling: op.pref.shareHandling }),
+            ...(op.pref.shareTargetLedgerId !== undefined && {
+              share_target_ledger_id: op.pref.shareTargetLedgerId,
+            }),
           },
           { onConflict: 'user_id,ledger_id' },
         );
@@ -198,15 +213,11 @@ export class SupabaseRemote implements RemoteApi {
     ]);
     const [profileRes, ledgersRes, prefsRes, friendsRes, placeholdersRes, invitesRes] = await Promise.all([
       sb.from('profiles').select('*').eq('id', this.uid).maybeSingle(),
-      sb
-        .from('ledgers')
-        .select(
-          'id, name, currency, kind, status, owner_id, created_at, ledger_members(id, user_id, placeholder_id, display_name, left_at)',
-        ),
-      sb
-        .from('ledger_prefs')
-        .select('ledger_id, starred, sort_order, share_handling')
-        .eq('user_id', this.uid),
+      sb.from('ledgers').select(
+        // All ledger columns: works with or without the Phase 6 migration.
+        '*, ledger_members(id, user_id, placeholder_id, display_name, left_at)',
+      ),
+      sb.from('ledger_prefs').select('*').eq('user_id', this.uid),
       sb.from('friendships').select('friend_id, friend_name, starred').eq('user_id', this.uid),
       sb.from('placeholder_friends').select('id, name, merged_user_id, created_at'),
       sb.from('invites').select('code, placeholder_id, created_at').eq('created_by', this.uid),
@@ -241,6 +252,9 @@ export class SupabaseRemote implements RemoteApi {
         starred: p.starred,
         order: p.sort_order,
         shareHandling: (p.share_handling ?? 'ask') as ShareHandling,
+        ...(p.share_target_ledger_id !== undefined && {
+          shareTargetLedgerId: typeof p.share_target_ledger_id === 'string' ? p.share_target_ledger_id : null,
+        }),
       };
     }
 
@@ -348,12 +362,23 @@ function bankRow(patch: BankPatch) {
   };
 }
 
+function ledgerRow(patch: LedgerPatch) {
+  return {
+    ...(patch.name !== undefined && { name: patch.name }),
+    ...(patch.status !== undefined && { status: patch.status }),
+    ...(patch.entryCurrency !== undefined && { entry_currency: patch.entryCurrency }),
+    ...(patch.categorySet !== undefined && { category_set: patch.categorySet }),
+    ...(patch.rates !== undefined && { rates: patch.rates }),
+  };
+}
+
 function profileRow(patch: Partial<UserProfile>) {
   return {
     ...(patch.displayName !== undefined && { display_name: patch.displayName }),
     ...(patch.locale !== undefined && { locale: patch.locale }),
     ...(patch.starredCurrencies !== undefined && { starred_currencies: patch.starredCurrencies }),
     ...(patch.lastUsedLedger !== undefined && { last_used_ledger: patch.lastUsedLedger }),
+    ...(patch.lastLedgerId !== undefined && { last_ledger_id: patch.lastLedgerId }),
     ...(patch.bankReminder !== undefined && { bank_reminder: patch.bankReminder }),
     ...(patch.bgTheme !== undefined && { bg_theme: patch.bgTheme }),
     ...(patch.accentTheme !== undefined && { accent_theme: patch.accentTheme }),
@@ -375,6 +400,11 @@ function entryRow(patch: Partial<NewEntry> | Entry) {
     ...(patch.recordedOnBehalf !== undefined && { recorded_on_behalf: patch.recordedOnBehalf }),
     ...(patch.sourceEntryId !== undefined && { source_entry_id: patch.sourceEntryId }),
     ...(patch.sourceLedgerId !== undefined && { source_ledger_id: patch.sourceLedgerId }),
+    // Only set for entries in another currency (LocalRepo leaves them out otherwise). The converted
+    // amounts are never sent: the server derives them from the rate.
+    ...(patch.currency !== undefined && { currency: patch.currency }),
+    ...(patch.fxRate !== undefined && { fx_rate: patch.fxRate }),
+    ...(patch.fxSource !== undefined && { fx_source: patch.fxSource }),
   };
 }
 
@@ -398,6 +428,7 @@ function toProfile(row: Row): UserProfile {
       row.last_used_ledger && typeof row.last_used_ledger === 'object'
         ? (row.last_used_ledger as Record<string, string>)
         : {},
+    lastLedgerId: strOrNull(row.last_ledger_id),
     bankReminder: row.bank_reminder === 'monthly' ? 'monthly' : 'weekly',
     bgTheme: oneOf(BG_THEMES, row.bg_theme, DEFAULT_PROFILE.bgTheme),
     accentTheme: oneOf(ACCENT_THEMES, row.accent_theme, DEFAULT_PROFILE.accentTheme),
@@ -460,10 +491,15 @@ function toLedger(row: Row): Ledger {
     name: str(m.display_name),
     leftAt: m.left_at ? time(m.left_at) : null,
   }));
+  const categorySet = str(row.category_set);
   return {
     id: str(row.id),
     name: str(row.name),
     currency: str(row.currency, 'AUD'),
+    // Phase 6 columns; missing on a server without the migration.
+    ...('entry_currency' in row && { entryCurrency: strOrNull(row.entry_currency) }),
+    ...(isCategorySet(categorySet) && { categorySet }),
+    ...(row.rates !== undefined && { rates: toRates(row.rates) }),
     kind: row.kind === 'shared' ? 'shared' : 'personal',
     status: row.status === 'ended' ? 'ended' : 'active',
     ownerUid: str(row.owner_id),
@@ -473,21 +509,49 @@ function toLedger(row: Row): Ledger {
   };
 }
 
+function toRates(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') return {};
+  const rates: Record<string, string> = {};
+  for (const [code, rate] of Object.entries(value as Record<string, unknown>)) {
+    const normalised = typeof rate === 'string' ? normaliseRate(rate) : null;
+    if (normalised) rates[code] = normalised;
+  }
+  return rates;
+}
+
+const FX_SOURCES: FxSource[] = ['same', 'ledger', 'manual', 'split'];
+
+/** A jsonb object of member key -> whole minor units. */
+function toAmounts(value: unknown): Record<string, number> | null {
+  return value && typeof value === 'object'
+    ? Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, Number(v)]))
+    : null;
+}
+
+/** Phase 6 conversion columns, when the server has them. numeric arrives as a JSON number. */
+function toConversion(row: Row): Partial<Entry> {
+  if (typeof row.currency !== 'string') return {};
+  const rate = typeof row.fx_rate === 'number' || typeof row.fx_rate === 'string' ? String(row.fx_rate) : '1';
+  return {
+    currency: row.currency,
+    fxRate: normaliseRate(rate) ?? '1',
+    fxSource: oneOf(FX_SOURCES, row.fx_source, 'same'),
+    ...(row.amount_settle_minor != null && { amountSettleMinor: Number(row.amount_settle_minor) }),
+    sharesSettle: toAmounts(row.shares_settle),
+  };
+}
+
 function toEntry(row: Row): PulledEntry | null {
   const categoryCode = str(row.category_code);
   if (!isCategoryCode(categoryCode) || !ENTRY_TYPES.includes(row.type as EntryType)) return null;
-  const shares =
-    row.shares && typeof row.shares === 'object'
-      ? Object.fromEntries(
-          Object.entries(row.shares as Record<string, unknown>).map(([k, v]) => [k, Number(v)]),
-        )
-      : null;
+  const shares = toAmounts(row.shares);
   return {
     id: str(row.id),
     ledgerId: str(row.ledger_id),
     type: row.type as EntryType,
     isSplit: row.is_split === true,
     amountMinor: Number(row.amount_minor),
+    ...toConversion(row),
     categoryCode,
     date: str(row.date),
     note: str(row.note),

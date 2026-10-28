@@ -1,4 +1,5 @@
 import { getCurrency } from './currency';
+import type { Entry, FxSource } from './domain';
 import type { MinorUnits } from './money';
 
 /**
@@ -115,19 +116,14 @@ export function suggestedRate(midRate: string, markup: string = SUGGESTED_MARKUP
  * Each member's share in the settlement currency (`shares_settle`): the
  * converted total split in proportion to `shares` (entry currency) with the
  * largest remainder method, so it always adds up to `settleTotal`. Ties go to
- * the member that comes first in `memberOrder`.
+ * the lower member key (plain character order), the same rule as the server's
+ * allocate_settle, so both always agree.
  */
 export function allocateSettle(
   settleTotal: MinorUnits,
   shares: Record<string, MinorUnits>,
-  memberOrder: readonly string[] = [],
 ): Record<string, MinorUnits> {
-  const ids = Object.keys(shares);
-  const rank = (id: string) => {
-    const index = memberOrder.indexOf(id);
-    return index < 0 ? memberOrder.length + ids.indexOf(id) : index;
-  };
-  const ordered = [...ids].sort((a, b) => rank(a) - rank(b));
+  const ordered = Object.keys(shares).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const shareSum = ordered.reduce((sum, id) => sum + BigInt(shares[id]), 0n);
   const result: Record<string, MinorUnits> = {};
   if (shareSum === 0n) {
@@ -154,4 +150,48 @@ export function allocateSettle(
     result[part.id] = Number(part.floor);
   });
   return result;
+}
+
+export type Settlement = {
+  currency: string;
+  fxRate: string;
+  fxSource: FxSource;
+  amountSettleMinor: MinorUnits;
+  sharesSettle: Record<string, MinorUnits> | null;
+};
+
+/**
+ * The conversion fields of an entry in a ledger settled in `settleCurrency`.
+ * Same rules as the server (guard_entry_write), which recalculates them anyway:
+ * - paid in the settlement currency: rate 1, source "same", converted = amount
+ * - split (a personal copy): keeps the converted amount it was given
+ * - otherwise: amount × rate, rounded half-up to ISO minor units
+ * The converted shares are the converted amount split in proportion to `shares`.
+ */
+export function settlementFor(
+  entry: Pick<Entry, 'amountMinor' | 'shares' | 'currency' | 'fxRate' | 'fxSource' | 'amountSettleMinor'>,
+  settleCurrency: string,
+): Settlement {
+  const currency = entry.currency ?? settleCurrency;
+  let fxRate = (entry.fxRate && normaliseRate(entry.fxRate)) || '1';
+  let fxSource: FxSource = entry.fxSource ?? 'same';
+  let amountSettleMinor: MinorUnits;
+  if (currency === settleCurrency) {
+    fxRate = '1';
+    if (fxSource !== 'split') fxSource = 'same';
+    amountSettleMinor = entry.amountMinor;
+  } else if (fxSource === 'split' && entry.amountSettleMinor !== undefined) {
+    amountSettleMinor = entry.amountSettleMinor;
+  } else {
+    // The server refuses "same" for another currency; the app always sends a source with a rate.
+    if (fxSource === 'same' || fxSource === 'split') fxSource = 'ledger';
+    amountSettleMinor = convertMinor(entry.amountMinor, currency, settleCurrency, fxRate);
+  }
+  return {
+    currency,
+    fxRate,
+    fxSource,
+    amountSettleMinor,
+    sharesSettle: entry.shares ? allocateSettle(amountSettleMinor, entry.shares) : null,
+  };
 }

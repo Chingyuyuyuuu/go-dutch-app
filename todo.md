@@ -11,6 +11,7 @@
 - [x] **建立 Supabase 專案**（2026-10-27 完成：專案 `Cyy ChipIn`，Sydney；設定已檢查）：
 - [ ] 👤 **上線前**刪除測試帳號（開發期間先保留，自動測試會繼續用）：SQL Editor 執行 `delete from auth.users where email like 'gd-test-%@example.com';`，會連同測試帳本、好友關係一起刪除
 - [x] **套用 Phase 4 的資料庫變更**（2026-10-27 完成）：Supabase → SQL Editor → 貼上並執行 `supabase/migrations/20261028000000_recurring_banks.sql` 整個檔案（定期扣款、銀行帳戶）。**要在下次 push 到 main 之前做**，網頁版才會有這些功能；沒套用也不會壞，只是定期扣款、銀行帳戶不會同步到雲端
+- [ ] **套用 Phase 6 的資料庫變更**：SQL Editor 執行 `supabase/migrations/20261030000000_fx_categories.sql`（帳本匯率、記帳幣別、類別組、`last_ledger_id`）。沒套用也不會壞：新版 App 照常同步，只是之後的外幣紀錄、類別組等設定不會上傳。建議在外幣畫面上線前做
 - [ ] **確認 Cron 有開（每小時自動記入扣款）**：到 Integrations → Cron 看有沒有 `go-dutch-recurring` 這個排程。我從外面查不到 Cron 狀態（SQL 執行時如果出現「pg_cron not set up」就是沒開）。執行上面的 SQL 時如果下方出現「pg_cron not set up」的提示，到 Integrations → Cron 開啟，再到 SQL Editor 執行一行 `select cron.schedule('go-dutch-recurring', '7 * * * *', 'select public.run_all_recurring()');`。沒開的話，App 每次開啟、同步時也會記入到期的扣款，只是手機沒開就不會記
 - [x] **套用 Phase 5 的資料庫變更**（2026-10-27 完成）：SQL Editor 再執行 `supabase/migrations/20261029000000_appearance_account.sql`（外觀設定、首頁照片的儲存空間 `home-photos`、刪除帳號）。要在上一個檔案之後執行
 - [x] 用你的專案跑定期扣款、銀行對帳、首頁照片上傳、刪除帳號的端到端測試（2026-10-27，23 項通過，見 log.md）
@@ -234,8 +235,8 @@
 
 匯率換算（§6A）
 - [x] 純函式＋單元測試：匯率字串解析與 BigInt 換算（到 ISO 最小單位）、half-up、實用小數位（TWD = 0，只用在輸入與顯示）、最大餘數分配 `shares_settle`（同餘數依成員順序）、分帳與結清的取整（建立者捨去、其他人進位）、從實際金額反推匯率、建議值 4 位有效數字
-- [ ] migration：`ledgers.entry_currency`、`rates`（帳本匯率）；`entries.currency`、`fx_rate`、`fx_source`（ledger / manual / same / split）、`amount_settle_minor`、`shares_settle`；舊資料補值；漏填換算欄位時伺服器補同幣別；`profiles.last_ledger_id`；`ledger_prefs.share_target_ledger_id`
-- [ ] `guard_entry_write`（漏填補同幣別、`split` 不檢查）、`sync_personal_copies`／`personal_ledger_for`（計入的那筆 `fx_source = split`）；手機上的結餘計算（`balances.ts`）改用換算後金額；RLS 與 PGlite 測試
+- [x] migration：`ledgers.entry_currency`、`rates`（帳本匯率）；`entries.currency`、`fx_rate`、`fx_source`（ledger / manual / same / split）、`amount_settle_minor`、`shares_settle`；舊資料補值；漏填換算欄位時伺服器補同幣別；`profiles.last_ledger_id`；`ledger_prefs.share_target_ledger_id`
+- [x] `guard_entry_write`（漏填補同幣別、`split` 不檢查）、`sync_personal_copies`／`personal_ledger_for`（計入的那筆 `fx_source = split`）；手機上的結餘計算（`balances.ts`）改用換算後金額；RLS 與 PGlite 測試
 - [ ] `fx_rates` 資料表＋每天抓市場中間價的 Edge Function＋pg_cron；`suggest_rate`（中間價 × 1.015）；`set_ledger_rate`（含全部重算與修改歷史）
 - [ ] 帳本設定 · 匯率頁（26b）：各外幣的帳本匯率、修改時「之後新增／全部重算」；分帳帳本改匯率的提示
 - [ ] 換算資訊圖示 ⓘ 與匯率表單（24：匯率、來源、算式、輸入實際台幣金額、修改單筆匯率、修改帳本匯率）、金額畫面換算列、泡泡雙幣別、分帳畫面每人雙幣別
@@ -249,7 +250,8 @@
 - [x] `categories.ts`：新增 9 個支出代碼、1 個收入代碼；類別組定義（`categoryGrid`：帳本的組＋用過的其他組類別＋「更多類別」）
 - [x] i18n：新類別的 zh-TW 與 en-AU 名稱；`coffee` 改名
   - 畫面目前固定用「澳洲生活」組（和改版前一樣），等帳本有 `category_set` 再接上；`退稅（日本免稅）` 在 4 欄格子裡是否太長，接畫面時確認
-- [ ] `ledgers.category_set`（migration＋同步）；新增帳本與帳本設定可選
+- [x] `ledgers.category_set`（migration＋同步）
+- [ ] 新增帳本與帳本設定可選類別組
 - [ ] 類別畫面依帳本類別組顯示＋「更多類別」，用過的留在格子最後面
 
 免登入分享頁（§6B）

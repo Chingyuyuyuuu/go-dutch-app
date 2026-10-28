@@ -1,3 +1,4 @@
+import { settledAmount, settledShares } from './domain';
 import { roundToDisplayUnit, type MinorUnits } from './money';
 import { splitEvenly } from './split';
 
@@ -9,10 +10,13 @@ export type BalanceEntry = {
   payerMemberId: string | null;
   /** Member → share. For a repayment, the single member who was paid back. */
   shares: Record<string, MinorUnits> | null;
+  /** In the settlement currency (Phase 6). Missing: paid in the settlement currency. */
+  amountSettleMinor?: MinorUnits;
+  sharesSettle?: Record<string, MinorUnits> | null;
 };
 
 /**
- * Net position of every member: positive = the others owe them, negative = they owe.
+ * Net position of every member, in the settlement currency: positive = the others owe them, negative = they owe.
  * - expense / repayment: the payer is owed the total; each share is owed by its member
  * - income (e.g. a shared refund one person received): the opposite
  */
@@ -22,10 +26,11 @@ export function memberNets(entries: BalanceEntry[]): Record<string, MinorUnits> 
     net[id] = (net[id] ?? 0) + amount;
   };
   for (const e of entries) {
-    if (!e.payerMemberId || !e.shares) continue;
+    const shares = settledShares(e);
+    if (!e.payerMemberId || !shares) continue;
     const sign = e.type === 'income' ? -1 : 1;
-    add(e.payerMemberId, sign * e.amountMinor);
-    for (const [memberId, share] of Object.entries(e.shares)) add(memberId, -sign * share);
+    add(e.payerMemberId, sign * settledAmount(e));
+    for (const [memberId, share] of Object.entries(shares)) add(memberId, -sign * share);
   }
   return net;
 }
@@ -91,20 +96,28 @@ export function isSettled(net: MinorUnits, currency: string): boolean {
   return roundToDisplayUnit(Math.abs(net), currency, 'floor') === 0;
 }
 
-/** One member's share of an entry, or 0. */
+/** One member's share of an entry in the currency it was paid in, or 0. */
 export function shareOf(entry: Pick<BalanceEntry, 'shares'>, memberId: string): MinorUnits {
   return entry.shares?.[memberId] ?? 0;
 }
 
+/** One member's share of an entry in the settlement currency, or 0. */
+export function settledShareOf(
+  entry: Pick<BalanceEntry, 'shares' | 'sharesSettle'>,
+  memberId: string,
+): MinorUnits {
+  return settledShares(entry)?.[memberId] ?? 0;
+}
+
 /**
- * What a member spent in a shared ledger: their expense shares minus their
+ * What a member spent in a shared ledger, in the settlement currency: their expense shares minus their
  * income shares. Repayments only move money between members, so they are left out.
  */
 export function spentShare(entries: BalanceEntry[], memberId: string): MinorUnits {
   let total = 0;
   for (const e of entries) {
-    if (e.type === 'expense') total += shareOf(e, memberId);
-    else if (e.type === 'income') total -= shareOf(e, memberId);
+    if (e.type === 'expense') total += settledShareOf(e, memberId);
+    else if (e.type === 'income') total -= settledShareOf(e, memberId);
   }
   return total;
 }

@@ -242,7 +242,15 @@ describe('SupabaseRemote.push', () => {
       ['POST', '/rest/v1/rpc/leave_ledger'],
     ]);
     expect(calls[0].body).toEqual({
-      p_ledger: { id: TRIP, name: 'Japan Trip', currency: 'JPY', createdAt: '2026-10-20T00:00:00.000Z' },
+      p_ledger: {
+        id: TRIP,
+        name: 'Japan Trip',
+        currency: 'JPY',
+        createdAt: '2026-10-20T00:00:00.000Z',
+        entryCurrency: null,
+        categorySet: 'japan_travel',
+        rates: {},
+      },
       p_members: [
         { id: 'm-me', uid: UID, placeholderId: null, name: 'Me' },
         { id: 'm-dad', uid: null, placeholderId: 'ph-dad', name: 'Dad' },
@@ -455,6 +463,7 @@ describe('SupabaseRemote.pull', () => {
       locale: 'zh-TW',
       starredCurrencies: ['AUD', 'JPY'],
       lastUsedLedger: { AUD: LEDGER },
+      lastLedgerId: null,
       bankReminder: 'weekly',
       bgTheme: 'mint',
       accentTheme: 'marigold',
@@ -557,8 +566,154 @@ describe('SupabaseRemote.pull', () => {
     expect(result.ledgers).toHaveLength(2);
   });
 
+  it('reads the Phase 6 columns when the server has them', async () => {
+    const { remote } = setup((call) => {
+      const table = call.url.pathname.replace('/rest/v1/', '');
+      if (table === 'profiles') return json({ ...rows.profiles, last_ledger_id: LEDGER });
+      if (table === 'ledgers') {
+        return json([
+          {
+            ...rows.ledgers[0],
+            entry_currency: 'JPY',
+            category_set: 'japan_travel',
+            rates: { JPY: '0.21020' },
+          },
+          { ...rows.ledgers[1], entry_currency: null, category_set: 'nonsense', rates: { KRW: 5 } },
+        ]);
+      }
+      if (table === 'ledger_prefs')
+        return json([{ ...rows.ledger_prefs[0], share_target_ledger_id: LEDGER }]);
+      if (table === 'entries') {
+        return json([
+          entryRow('e-jp', LEDGER, '2026-10-26T09:00:00+00:00', {
+            amount_minor: 10000,
+            currency: 'JPY',
+            fx_rate: 0.2102,
+            fx_source: 'ledger',
+            amount_settle_minor: 210200,
+            shares_settle: null,
+          }),
+        ]);
+      }
+      return respond(call);
+    });
+    const result = await remote.pull(null, []);
+    expect(result.profile?.lastLedgerId).toBe(LEDGER);
+    expect(result.ledgers[0]).toMatchObject({
+      entryCurrency: 'JPY',
+      categorySet: 'japan_travel',
+      rates: { JPY: '0.2102' },
+    });
+    // Unknown set and a non-string rate are dropped rather than trusted.
+    expect(result.ledgers[1].categorySet).toBeUndefined();
+    expect(result.ledgers[1].rates).toEqual({});
+    expect(result.prefs[TRIP].shareTargetLedgerId).toBe(LEDGER);
+    expect(result.entries[0]).toMatchObject({
+      amountMinor: 10000,
+      currency: 'JPY',
+      fxRate: '0.2102',
+      fxSource: 'ledger',
+      amountSettleMinor: 210200,
+      sharesSettle: null,
+    });
+  });
+
+  it('leaves the Phase 6 fields out for a server without the migration', async () => {
+    const { remote } = setup(respond);
+    const result = await remote.pull('2026-10-26T00:00:00Z', [LEDGER]);
+    expect(result.ledgers[0]).not.toHaveProperty('categorySet');
+    expect(result.ledgers[0]).not.toHaveProperty('rates');
+    expect(result.entries[0]).not.toHaveProperty('currency');
+    expect(result.entries[0]).not.toHaveProperty('amountSettleMinor');
+  });
+
   it('fails the pull when a query fails, so the local copy is kept', async () => {
     const { remote } = setup(() => json({ message: 'JWT expired', code: 'PGRST301' }, 401));
     await expect(remote.pull(null, [])).rejects.toBeTruthy();
+  });
+});
+
+describe('SupabaseRemote Phase 6', () => {
+  it('sends the currency and rate of an entry in another currency, never the converted amounts', async () => {
+    const { remote, calls } = setup(ok);
+    await remote.push({
+      kind: 'insertEntry',
+      entry: {
+        ...entry,
+        amountMinor: 10000,
+        currency: 'JPY',
+        fxRate: '0.2102',
+        fxSource: 'ledger',
+        amountSettleMinor: 210200,
+        sharesSettle: null,
+      },
+    });
+    expect(calls[0].body).toMatchObject({
+      amount_minor: 10000,
+      currency: 'JPY',
+      fx_rate: '0.2102',
+      fx_source: 'ledger',
+    });
+    expect(calls[0].body).not.toHaveProperty('amount_settle_minor');
+    expect(calls[0].body).not.toHaveProperty('shares_settle');
+  });
+
+  it('only sends ledger settings that differ from the server defaults', async () => {
+    const { remote, calls } = setup(ok);
+    const base: Ledger = {
+      id: LEDGER,
+      name: 'Japan',
+      currency: 'TWD',
+      kind: 'personal',
+      status: 'active',
+      ownerUid: UID,
+      members: [],
+      memberUids: [UID],
+      createdAt: Date.parse('2026-10-28T00:00:00Z'),
+    };
+    await remote.push({
+      kind: 'insertLedger',
+      ledger: { ...base, entryCurrency: null, categorySet: 'japan_travel', rates: {} },
+    });
+    await remote.push({
+      kind: 'insertLedger',
+      ledger: { ...base, entryCurrency: 'JPY', categorySet: 'au_life', rates: { JPY: '0.2102' } },
+    });
+    expect(calls[0].body).toEqual({
+      id: LEDGER,
+      name: 'Japan',
+      currency: 'TWD',
+      kind: 'personal',
+      status: 'active',
+      created_at: '2026-10-28T00:00:00.000Z',
+    });
+    expect(calls[1].body).toMatchObject({
+      entry_currency: 'JPY',
+      category_set: 'au_life',
+      rates: { JPY: '0.2102' },
+    });
+  });
+
+  it('maps ledger, pref and profile changes to their columns', async () => {
+    const { remote, calls } = setup(ok);
+    await remote.push({
+      kind: 'updateLedger',
+      ledgerId: LEDGER,
+      patch: { name: 'Osaka', entryCurrency: 'JPY', categorySet: 'au_life', rates: { JPY: '0.21' } },
+    });
+    await remote.push({
+      kind: 'ledgerPref',
+      ledgerId: TRIP,
+      pref: { starred: false, order: 1, shareHandling: 'each', shareTargetLedgerId: LEDGER },
+    });
+    await remote.push({ kind: 'profile', patch: { lastLedgerId: LEDGER } });
+    expect(calls[0].body).toEqual({
+      name: 'Osaka',
+      entry_currency: 'JPY',
+      category_set: 'au_life',
+      rates: { JPY: '0.21' },
+    });
+    expect(calls[1].body).toMatchObject({ share_handling: 'each', share_target_ledger_id: LEDGER });
+    expect(calls[2].body).toEqual({ id: UID, last_ledger_id: LEDGER });
   });
 });

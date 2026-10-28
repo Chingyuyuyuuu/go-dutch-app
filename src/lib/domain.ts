@@ -1,4 +1,4 @@
-import type { CategoryCode } from './categories';
+import type { CategoryCode, CategorySet } from './categories';
 import type { LocalDate } from './date';
 import type { MinorUnits } from './money';
 
@@ -23,8 +23,14 @@ export type LedgerMember = {
 export type Ledger = {
   id: string;
   name: string;
-  /** ISO 4217 code. Fixed when the ledger is created. */
+  /** Settlement currency (ISO 4217): totals, balances and settling up. Fixed when the ledger is created. */
   currency: string;
+  /** Currency a new entry starts in (e.g. JPY for a Japan trip settled in TWD). Missing: the settlement currency. */
+  entryCurrency?: string | null;
+  /** Which categories the grid shows. Missing: a ledger from before Phase 6 (au_life). */
+  categorySet?: CategorySet;
+  /** Ledger rates: currency -> rate string ("0.2102" = 1 JPY in the settlement currency). */
+  rates?: Record<string, string>;
   kind: LedgerKind;
   status: LedgerStatus;
   ownerUid: string;
@@ -37,12 +43,32 @@ export type Ledger = {
 /** expense / income; repayment settles a debt between two members of a shared ledger. */
 export type EntryType = 'expense' | 'income' | 'repayment';
 
+/**
+ * Where an entry's rate came from. same: paid in the settlement currency · ledger: the
+ * ledger rate · manual: typed for this entry or derived from the amount actually paid ·
+ * split: a personal copy of a shared entry (converted amount from the shared entry).
+ */
+export type FxSource = 'same' | 'ledger' | 'manual' | 'split';
+
 export type Entry = {
   id: string;
   ledgerId: string;
   type: EntryType;
   isSplit: boolean;
+  /** In the currency it was paid in (`currency`). */
   amountMinor: MinorUnits;
+  /**
+   * Phase 6 conversion. All missing means paid in the ledger's settlement currency
+   * (entries from before Phase 6, or from a server without the Phase 6 migration).
+   * Read them with entryCurrency / settledAmount / settledShares.
+   */
+  currency?: string;
+  fxRate?: string;
+  fxSource?: FxSource;
+  /** amountMinor converted to the settlement currency (ISO minor units, TWD in cents). */
+  amountSettleMinor?: MinorUnits;
+  /** shares converted to the settlement currency; adds up to amountSettleMinor. */
+  sharesSettle?: Record<string, MinorUnits> | null;
   categoryCode: CategoryCode;
   date: LocalDate;
   note: string;
@@ -76,6 +102,9 @@ export type NewEntry = Pick<Entry, 'type' | 'amountMinor' | 'categoryCode' | 'da
       | 'sourceLedgerId'
       | 'recurringId'
       | 'recurringSeq'
+      | 'currency'
+      | 'fxRate'
+      | 'fxSource'
     >
   >;
 
@@ -89,6 +118,8 @@ export type LedgerPref = {
   order: number;
   /** Shared ledgers only. */
   shareHandling?: ShareHandling;
+  /** Shared ledgers only: the personal ledger my shares are added to (same settlement currency). */
+  shareTargetLedgerId?: string | null;
 };
 
 export type Friend = { uid: string; name: string; starred: boolean };
@@ -118,8 +149,10 @@ export type UserProfile = {
   displayName: string;
   locale: LocalePref;
   starredCurrencies: string[];
-  /** Last personal ledger used per currency, so routing can put it first. */
+  /** Before Phase 6: last personal ledger used per currency. Kept for older apps; no longer read. */
   lastUsedLedger: Record<string, string>;
+  /** Last personal ledger used, so routing can put it first. */
+  lastLedgerId: string | null;
   bankReminder: BankReminder;
   bgTheme: BgTheme;
   accentTheme: AccentTheme;
@@ -133,6 +166,7 @@ export const DEFAULT_PROFILE: UserProfile = {
   locale: 'system',
   starredCurrencies: ['AUD', 'TWD'],
   lastUsedLedger: {},
+  lastLedgerId: null,
   bankReminder: 'weekly',
   bgTheme: 'cream',
   accentTheme: 'marigold',
@@ -200,6 +234,33 @@ export const PERSONAL_ENTRY_FIELDS = {
   recurringId: null,
   recurringSeq: null,
 } satisfies Partial<Entry>;
+
+/** The currency an entry was paid in. */
+export function entryCurrency(entry: Pick<Entry, 'currency'>, ledger: Pick<Ledger, 'currency'>): string {
+  return entry.currency ?? ledger.currency;
+}
+
+/** An entry's amount in the ledger's settlement currency: what totals and balances add up. */
+export function settledAmount(entry: Pick<Entry, 'amountMinor' | 'amountSettleMinor'>): MinorUnits {
+  return entry.amountSettleMinor ?? entry.amountMinor;
+}
+
+/** An entry's shares in the settlement currency. */
+export function settledShares(
+  entry: Pick<Entry, 'shares' | 'sharesSettle'>,
+): Record<string, MinorUnits> | null {
+  return entry.sharesSettle ?? entry.shares;
+}
+
+/** The ledger's category set; ledgers from before Phase 6 have none and keep the Australian set. */
+export function ledgerCategorySet(ledger: Pick<Ledger, 'categorySet'>): CategorySet {
+  return ledger.categorySet ?? 'au_life';
+}
+
+/** The members' rate for a currency in this ledger, if set. */
+export function ledgerRate(ledger: Pick<Ledger, 'rates'>, currency: string): string | null {
+  return ledger.rates?.[currency] ?? null;
+}
 
 /** The member row for an account, if it is an active member. */
 export function memberForUid(ledger: Ledger, uid: string): LedgerMember | undefined {

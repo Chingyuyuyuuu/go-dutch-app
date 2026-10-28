@@ -11,10 +11,19 @@ import type {
   Recurring,
   UserProfile,
 } from '@/lib/domain';
+import type { CategorySet } from '@/lib/categories';
 
 /** What a device may change on a recurring payment (paid count and owner are the server's). */
 export type RecurringPatch = Partial<Omit<Recurring, 'id' | 'ownerUid' | 'kind' | 'paidCount' | 'createdAt'>>;
 export type BankPatch = Partial<Omit<BankAccount, 'id' | 'createdAt'>>;
+/** What members may change on a ledger (settlement currency, kind and owner are fixed). */
+export type LedgerPatch = {
+  name?: string;
+  status?: LedgerStatus;
+  entryCurrency?: string | null;
+  categorySet?: CategorySet;
+  rates?: Record<string, string>;
+};
 
 /**
  * A change made on this device that still has to reach the server. Ops are
@@ -24,7 +33,7 @@ export type Op =
   | { kind: 'profile'; patch: Partial<UserProfile> }
   | { kind: 'insertLedger'; ledger: Ledger }
   | { kind: 'createSharedLedger'; ledger: Ledger }
-  | { kind: 'updateLedger'; ledgerId: string; patch: { name?: string; status?: LedgerStatus } }
+  | { kind: 'updateLedger'; ledgerId: string; patch: LedgerPatch }
   | { kind: 'addMembers'; ledgerId: string; members: LedgerMember[] }
   /** Personal: delete. Shared: leave (deleted when the last member leaves). */
   | { kind: 'leaveLedger'; ledgerId: string }

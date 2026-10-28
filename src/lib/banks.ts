@@ -1,5 +1,5 @@
 import { addDays, addMonths, type LocalDate } from './date';
-import type { BalanceCheck, BankAccount, BankReminder, Entry } from './domain';
+import { settledAmount, type BalanceCheck, type BankAccount, type BankReminder, type Entry } from './domain';
 import type { MinorUnits } from './money';
 
 /** At most this many balance checks are kept per account. */
@@ -49,8 +49,8 @@ export function reconcile(params: {
   let recorded = 0;
   for (const e of entries) {
     if (!linked.has(e.ledgerId) || e.date <= previous.date || e.date > today) continue;
-    if (e.type === 'expense') recorded += e.amountMinor;
-    else if (e.type === 'income') recorded -= e.amountMinor;
+    if (e.type === 'expense') recorded += settledAmount(e);
+    else if (e.type === 'income') recorded -= settledAmount(e);
   }
   const drop = previous.balanceMinor - newBalance;
   const gap = drop - recorded;

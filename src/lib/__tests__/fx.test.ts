@@ -5,6 +5,7 @@ import {
   normaliseRate,
   parseRate,
   rateFromAmounts,
+  settlementFor,
   suggestedRate,
 } from '../fx';
 
@@ -105,22 +106,22 @@ describe('suggestedRate', () => {
 describe('allocateSettle', () => {
   it('splits the converted total by the entry-currency shares (largest remainder)', () => {
     // ¥10,000 split 3,334 / 3,333 / 3,333 -> NT$2,102.00
-    expect(allocateSettle(210200, { a: 3334, b: 3333, c: 3333 }, ['a', 'b', 'c'])).toEqual({
+    expect(allocateSettle(210200, { a: 3334, b: 3333, c: 3333 })).toEqual({
       a: 70081,
       b: 70060,
       c: 70059,
     });
   });
 
-  it('breaks ties by member order', () => {
-    expect(allocateSettle(100, { a: 1, b: 1, c: 1 }, ['c', 'a', 'b'])).toEqual({ c: 34, a: 33, b: 33 });
-    expect(allocateSettle(100, { a: 1, b: 1, c: 1 }, ['b', 'c', 'a'])).toEqual({ b: 34, c: 33, a: 33 });
+  it('breaks ties by member key, whatever order the shares come in', () => {
+    expect(allocateSettle(100, { c: 1, a: 1, b: 1 })).toEqual({ a: 34, b: 33, c: 33 });
+    expect(allocateSettle(200, { c: 1, b: 1, a: 1 })).toEqual({ a: 67, b: 67, c: 66 });
   });
 
   it('always adds up to the total', () => {
     const shares = { a: 1234, b: 1, c: 98765, d: 4321 };
     for (const total of [0, 1, 99, 210200, 9_999_999_999]) {
-      const settle = allocateSettle(total, shares, ['a', 'b', 'c', 'd']);
+      const settle = allocateSettle(total, shares);
       expect(Object.values(settle).reduce((x, y) => x + y, 0)).toBe(total);
     }
   });
@@ -128,5 +129,68 @@ describe('allocateSettle', () => {
   it('gives zero to zero shares and handles no shares at all', () => {
     expect(allocateSettle(500, { a: 0, b: 10 })).toEqual({ a: 0, b: 500 });
     expect(allocateSettle(500, { a: 0, b: 0 })).toEqual({ a: 0, b: 0 });
+  });
+});
+
+describe('settlementFor (same rules as the server guard)', () => {
+  const base = { amountMinor: 10000, shares: null };
+
+  it('treats a missing currency as the settlement currency', () => {
+    expect(settlementFor(base, 'TWD')).toEqual({
+      currency: 'TWD',
+      fxRate: '1',
+      fxSource: 'same',
+      amountSettleMinor: 10000,
+      sharesSettle: null,
+    });
+  });
+
+  it('converts with the rate and splits the converted shares', () => {
+    expect(
+      settlementFor(
+        {
+          amountMinor: 10000,
+          currency: 'JPY',
+          fxRate: '0.2102',
+          fxSource: 'ledger',
+          shares: { a: 5000, b: 5000 },
+        },
+        'TWD',
+      ),
+    ).toEqual({
+      currency: 'JPY',
+      fxRate: '0.2102',
+      fxSource: 'ledger',
+      amountSettleMinor: 210200,
+      sharesSettle: { a: 105100, b: 105100 },
+    });
+  });
+
+  it('resets the rate when the entry is back in the settlement currency', () => {
+    expect(
+      settlementFor({ ...base, currency: 'TWD', fxRate: '0.2102', fxSource: 'manual' }, 'TWD'),
+    ).toMatchObject({
+      fxRate: '1',
+      fxSource: 'same',
+      amountSettleMinor: 10000,
+    });
+  });
+
+  it('keeps the converted amount of a personal copy', () => {
+    expect(
+      settlementFor(
+        { ...base, currency: 'JPY', fxRate: '0.2102', fxSource: 'split', amountSettleMinor: 210199 },
+        'TWD',
+      ),
+    ).toMatchObject({ fxSource: 'split', amountSettleMinor: 210199 });
+  });
+
+  it('never leaves another currency marked "same"', () => {
+    expect(settlementFor({ ...base, currency: 'JPY', fxRate: '0.2', fxSource: 'same' }, 'TWD')).toMatchObject(
+      {
+        fxSource: 'ledger',
+        amountSettleMinor: 200000,
+      },
+    );
   });
 });

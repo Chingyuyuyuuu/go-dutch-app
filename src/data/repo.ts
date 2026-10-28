@@ -7,7 +7,6 @@ import type {
   Invite,
   Ledger,
   LedgerPref,
-  LedgerStatus,
   NewEntry,
   NewRecurring,
   PlaceholderFriend,
@@ -16,7 +15,7 @@ import type {
   UserProfile,
 } from '@/lib/domain';
 
-import type { BankPatch, RecurringPatch } from './local/ops';
+import type { BankPatch, LedgerPatch, RecurringPatch } from './local/ops';
 import type { AcceptInviteResult } from './sync/SyncEngine';
 
 export type Unsubscribe = () => void;
@@ -24,11 +23,12 @@ export type Unsubscribe = () => void;
 /** A member to add to a shared ledger: a friend's account or a placeholder friend. */
 export type NewMember = { uid: string | null; placeholderId: string | null; name: string };
 
-export type NewLedger = Pick<Ledger, 'name' | 'currency' | 'kind'> & {
-  /** Shared ledgers: the other members (the creator is added automatically). */
-  members?: NewMember[];
-  shareHandling?: ShareHandling;
-};
+export type NewLedger = Pick<Ledger, 'name' | 'currency' | 'kind'> &
+  Partial<Pick<Ledger, 'entryCurrency' | 'categorySet' | 'rates'>> & {
+    /** Shared ledgers: the other members (the creator is added automatically). */
+    members?: NewMember[];
+    shareHandling?: ShareHandling;
+  };
 
 export type FriendsState = { friends: Friend[]; placeholders: PlaceholderFriend[]; invites: Invite[] };
 
@@ -61,7 +61,7 @@ export interface DataRepo {
 
   updateProfile(patch: Partial<UserProfile>): void;
   createLedger(input: NewLedger): string;
-  updateLedger(ledgerId: string, patch: { name?: string; status?: LedgerStatus }): void;
+  updateLedger(ledgerId: string, patch: LedgerPatch): void;
   addLedgerMembers(ledgerId: string, members: NewMember[]): void;
   /** Personal: deletes it. Shared: leaves it (deleted for everyone once the last member leaves). */
   removeLedger(ledgerId: string): void;

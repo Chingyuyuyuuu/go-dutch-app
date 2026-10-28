@@ -352,11 +352,11 @@
   - 改版前的台幣紀錄如果有「分」（以前 TWD 鍵盤可以輸入小數，例如 NT$12.50），資料不改，只是顯示到元。
 - **分帳**：
   - 每人分到的金額（`shares`）用**記帳幣別**存，規則不變（加總 = 原始金額，均分用餘數規則，到 ISO 最小單位）。
-  - 每人的結算幣別金額（`shares_settle`）：把換算後總額依 `shares` 的比例分配到「分」，用**最大餘數法**，保證加總剛好等於換算後總額；餘數相同時依成員編號順序。
+  - 每人的結算幣別金額（`shares_settle`）：把換算後總額依 `shares` 的比例分配到「分」，用**最大餘數法**，保證加總剛好等於換算後總額；餘數相同時，成員編號（字元順序）小的先。手機與伺服器用同一個規則，算出來一定一樣。
     - 例：¥10,000 三人分 → ¥3,334／¥3,333／¥3,333；換算後 NT$2,102.00 → NT$700.81／NT$700.60／NT$700.59（加總剛好 NT$2,102.00）。
   - 結餘：付款人 +換算後總額，每個人 −自己的 `shares_settle`。結清（還款）直接用結算幣別記。
   - 改了一筆的匯率或金額，`shares_settle` 由伺服器重算；計入個人帳本的那筆跟著改。
-- 伺服器檢查（`fx_source = split` 的紀錄除外，見 §13.6）：換算後金額 = 用存的匯率重算的結果；`shares_settle` 加總 = 換算後金額。
+- 伺服器不採用手機送來的換算結果：每次寫入都用存的匯率重算換算後金額與 `shares_settle`，並覆蓋（`fx_source = split` 的紀錄除外，見 §13.6）。這樣還沒更新的 App 改了外幣紀錄的金額，換算結果也會正確（2026-10-28 實作時決定，比「檢查、不對就拒絕」穩）。
 
 ---
 
@@ -697,9 +697,9 @@ SQL 在 `supabase/migrations/20261029000000_appearance_account.sql`，測試在 
 **深層連結**：`godutch://add?type=expense|income|split`（網頁 `/add?type=…`）打開金額畫面並標示類型，給桌面小工具用。設定 → 桌面小工具有預覽畫面。
 
 
-### 13.6 Phase 6 預計新增的結構（2026-10-28 草稿，尚未實作）
+### 13.6 Phase 6 新增的結構（2026-10-28；匯率與類別組已實作，分享頁與 `fx_rates` 尚未）
 
-新的 migration 檔（例如 `supabase/migrations/20261030000000_fx_categories_share.sql`），舊檔不改。
+匯率與類別組的 SQL 在 `supabase/migrations/20261030000000_fx_categories.sql`，測試在 `supabase/tests/fx.test.mjs`（14 項）。分享頁、`fx_rates` 之後另外新增 migration，舊檔不改。
 
 | 資料表／欄位 | 說明 |
 | --- | --- |
@@ -723,8 +723,8 @@ SQL 在 `supabase/migrations/20261029000000_appearance_account.sql`，測試在 
 伺服器端：
 - `guard_entry_write`：
   - **漏填時自動補上「同幣別」**（2026-10-28 決定）：沒有 `currency` 就用帳本的 `currency`，`fx_rate = 1`、`fx_source = same`、`amount_settle_minor = amount_minor`，分帳的 `shares_settle = shares`。這樣伺服器其他新增紀錄的地方（`record_due_recurring` 的定期扣款與定期分帳）不用跟著改，還沒更新的 App 留在佇列裡的變更也不會被拒絕。
-  - 檢查：`amount_settle_minor` = 用 `fx_rate` 重算的結果（到 ISO 最小單位，half-up）；`shares_settle` 加總 = `amount_settle_minor`；同幣別時 `fx_rate = 1`。
-  - **`fx_source = split` 的紀錄不做重算檢查**（2026-10-28 決定）：計入個人帳本的那筆，換算後金額來自分帳的 `shares_settle`（最大餘數法），和「分到的原始金額 × 匯率」可能差 1 分。
+  - **重算並覆蓋**：`amount_settle_minor` = `convert_minor(amount_minor, currency, 帳本幣別, fx_rate)`（到 ISO 最小單位，half-up）；`shares_settle` = `allocate_settle(amount_settle_minor, shares)`；同幣別時 `fx_rate = 1`、`fx_source = same`。外幣卻標 `same` 會被拒絕；還款只能用結算幣別。SQL 有一份 ISO 小數位表（`currency_minor_units`），要和 `src/lib/currency/currencies.data.ts` 一致。
+  - **`fx_source = split` 的紀錄不重算**（2026-10-28 決定）：計入個人帳本的那筆，換算後金額來自分帳的 `shares_settle`（最大餘數法），和「分到的原始金額 × 匯率」可能差 1 分。只有伺服器建立、在個人帳本、有 `source_entry_id` 的紀錄可以用 `split`。
 - `sync_personal_copies` 改成依 `share_target_ledger_id` 計入（沒設定時找結算幣別相同的個人帳本），帶上記帳幣別與匯率，`amount_settle_minor` = 這個人的 `shares_settle`，`fx_source = split`。`personal_ledger_for`（目前用 `last_used_ledger ->> 幣別` 找帳本）一起改寫。
 - 新 function：`get_shared_ledger(token)`（匿名可呼叫）、`request_join`、`answer_join_request`、`create_share_link`、`revoke_share_link`、`set_ledger_rate`、`suggest_rate`（見下）。
 - 新 Edge Function＋pg_cron：每天抓一次市場中間價寫入 `fx_rates`。
@@ -736,6 +736,12 @@ SQL 在 `supabase/migrations/20261029000000_appearance_account.sql`，測試在 
 - 結餘是在手機上算的（`src/lib/balances.ts`，分享頁也用同一份）：改用 `amount_settle_minor` 與 `shares_settle`。交叉匯率（`1 JPY = rates.TWD ÷ rates.JPY TWD`）在伺服器的 `suggest_rate` 算。
 - 新的寫入類型要同時加：`Op`、`enqueueOp` 合併規則、`SupabaseRemote.push`、測試（見 claude-rule.md）。
 - 帳本匯率存在帳本資料裡，跟著帳本同步，離線也能換算；**不需要匯率快取**。
+- 手機上用 `settlementFor`（`src/lib/fx.ts`）算換算欄位，規則和伺服器的 guard 一樣，所以離線時看到的數字和同步後一樣。
+- **和還沒套用 migration 的伺服器相容**：
+  - 同幣別的紀錄不上傳換算欄位；換算後金額永遠不上傳。
+  - 帳本的類別組、常用記帳幣別、匯率只有和伺服器預設不同時才上傳。
+  - 下載時讀 `*`，沒有的欄位就當作同幣別（`settledAmount`、`settledShares`、`entryCurrency`、`ledgerCategorySet`）。
+  - 本機在 Phase 6 之前存的資料不用轉換。
 
 ---
 

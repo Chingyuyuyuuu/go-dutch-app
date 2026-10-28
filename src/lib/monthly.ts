@@ -1,6 +1,6 @@
 import type { CategoryCode } from './categories';
 import { shiftMonth, toLocalDate, daysInMonth } from './date';
-import type { Entry } from './domain';
+import { settledAmount, type Entry } from './domain';
 import type { MinorUnits } from './money';
 
 export type MonthRef = { year: number; month: number };
@@ -36,12 +36,13 @@ export function compareMonths(entries: Entry[], month: MonthRef): MonthCompariso
     const inBefore = e.date >= before.from && e.date <= before.to;
     if (!inCurrent && !inBefore) continue;
     const row = rows.get(e.categoryCode) ?? { code: e.categoryCode, amount: 0, previous: 0 };
+    const amount = settledAmount(e);
     if (inCurrent) {
-      row.amount += e.amountMinor;
-      total += e.amountMinor;
+      row.amount += amount;
+      total += amount;
     } else {
-      row.previous += e.amountMinor;
-      previousTotal += e.amountMinor;
+      row.previous += amount;
+      previousTotal += amount;
     }
     rows.set(e.categoryCode, row);
   }
