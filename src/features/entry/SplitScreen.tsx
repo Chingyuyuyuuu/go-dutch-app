@@ -5,7 +5,7 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { draftShares, newSplitDraft, SplitForm, type SplitDraft } from '@/features/shared/SplitForm';
 import { useI18n } from '@/i18n';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type CategoryCode } from '@/lib/categories';
+import { categoryGrid, type CategoryCode } from '@/lib/categories';
 import { getCurrency } from '@/lib/currency';
 import { dayLabel, todayLocal } from '@/lib/date';
 import { formatMoney, inputToMinor } from '@/lib/money';
@@ -46,7 +46,8 @@ export function SplitScreen() {
   const { minorUnits } = getCurrency(ledger.currency);
   const total = inputToMinor(draft.input, minorUnits);
   const income = split.kind === 'income';
-  const codes: readonly CategoryCode[] = income ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  // TODO(phase 6): use the ledger's category set once ledgers store one.
+  const codes = categoryGrid('au_life', income ? 'income' : 'expense').grid;
 
   const chooseLedger = (id: string) => {
     const next = candidates.find((l) => l.id === id);

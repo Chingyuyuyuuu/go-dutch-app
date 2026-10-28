@@ -11,6 +11,18 @@ export function getCurrency(code: string): CurrencyInfo {
   return info;
 }
 
+/**
+ * Currencies people use without their ISO minor units: Taiwan prices are whole
+ * dollars. Only input and display follow this; amounts are still stored and
+ * calculated in ISO minor units (TWD in cents).
+ */
+const PRACTICAL_DECIMALS: Readonly<Record<string, number>> = { TWD: 0 };
+
+/** Decimals shown and typed for a currency: 0 for TWD and JPY, 2 for AUD. */
+export function displayDecimals(code: string): number {
+  return PRACTICAL_DECIMALS[code] ?? getCurrency(code).minorUnits;
+}
+
 export function isCurrencyCode(code: string): boolean {
   return code in CURRENCIES;
 }

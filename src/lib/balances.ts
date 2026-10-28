@@ -1,4 +1,4 @@
-import type { MinorUnits } from './money';
+import { roundToDisplayUnit, type MinorUnits } from './money';
 import { splitEvenly } from './split';
 
 /** The parts of an entry that move money between members of a shared ledger. */
@@ -57,6 +57,38 @@ export function simplifyDebts(net: Record<string, MinorUnits>): Transfer[] {
     if (creditors[j][1] === 0) j++;
   }
   return transfers;
+}
+
+/**
+ * Shares as shown on screen, rounded to the display unit (whole dollars for
+ * TWD): the ledger owner's share rounded down, everyone else's rounded up.
+ * NT$1,000 ÷ 3 is stored as 333.34 / 333.33 / 333.33 and shows 333 / 334 / 334.
+ * The shown total can be off by less than one unit per member; stored shares stay exact.
+ */
+export function displayShares(
+  shares: Record<string, MinorUnits>,
+  ownerMemberId: string | null,
+  currency: string,
+): Record<string, MinorUnits> {
+  const shown: Record<string, MinorUnits> = {};
+  for (const [memberId, share] of Object.entries(shares)) {
+    shown[memberId] = roundToDisplayUnit(share, currency, memberId === ownerMemberId ? 'floor' : 'ceil');
+  }
+  return shown;
+}
+
+/**
+ * A settle-up amount in the display unit: rounded up, or down when the ledger
+ * owner is the one paying. What is left afterwards is below one unit and counts
+ * as settled (see isSettled).
+ */
+export function roundSettlement(amount: MinorUnits, payerIsOwner: boolean, currency: string): MinorUnits {
+  return roundToDisplayUnit(amount, currency, payerIsOwner ? 'floor' : 'ceil');
+}
+
+/** A balance smaller than one display unit (NT$1 for TWD, 1 cent for AUD) counts as settled. */
+export function isSettled(net: MinorUnits, currency: string): boolean {
+  return roundToDisplayUnit(Math.abs(net), currency, 'floor') === 0;
 }
 
 /** One member's share of an entry, or 0. */

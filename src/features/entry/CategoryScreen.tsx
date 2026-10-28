@@ -4,7 +4,7 @@ import { Pressable, TextInput, View } from 'react-native';
 
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { useI18n } from '@/i18n';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type CategoryCode } from '@/lib/categories';
+import { categoryGrid, type CategoryCode } from '@/lib/categories';
 import { getCurrency } from '@/lib/currency';
 import { dayLabel, todayLocal } from '@/lib/date';
 import { personalLedgersFor, routePersonalEntry } from '@/lib/ledgers';
@@ -41,7 +41,8 @@ export function CategoryScreen() {
   const minor = inputToMinor(draft.input, getCurrency(draft.currency).minorUnits);
   const amount = formatMoney(draft.currency, minor);
   const isIncome = draft.type === 'income';
-  const codes: readonly CategoryCode[] = isIncome ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  // TODO(phase 6): use the ledger's category set once ledgers store one.
+  const codes = categoryGrid('au_life', isIncome ? 'income' : 'expense').grid;
   const candidates = personalLedgersFor(draft.currency, ledgers);
   const ledgerLabel = `${ledger.name} · ${ledger.currency}`;
   const typeTone = isIncome

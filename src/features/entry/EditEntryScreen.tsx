@@ -5,7 +5,7 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { draftFromEntry, draftShares, SplitForm, type SplitDraft } from '@/features/shared/SplitForm';
 import { useI18n } from '@/i18n';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type CategoryCode } from '@/lib/categories';
+import { categoryGrid, type CategoryCode } from '@/lib/categories';
 import { getCurrency } from '@/lib/currency';
 import { dayLabel, todayLocal } from '@/lib/date';
 import {
@@ -63,7 +63,8 @@ export function EditEntryScreen() {
   const { symbol } = getCurrency(ledger.currency);
   const minor = inputToMinor(input, decimals);
   const isIncome = split ? split.kind === 'income' : entry.type === 'income';
-  const codes: readonly CategoryCode[] = isIncome ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  // TODO(phase 6): use the ledger's category set once ledgers store one.
+  const codes = categoryGrid('au_life', isIncome ? 'income' : 'expense', [entry.categoryCode]).grid;
 
   const repayment = entry.type === 'repayment';
 

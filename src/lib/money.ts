@@ -1,4 +1,4 @@
-import { getCurrency } from './currency';
+import { displayDecimals, getCurrency } from './currency';
 
 /** Amounts are always integer minor units (e.g. 1250 = 12.50 AUD). */
 export type MinorUnits = number;
@@ -105,6 +105,33 @@ export function sanitizeAmountText(text: string, decimals: number): string {
     .replace(/\./g, '')
     .slice(0, decimals);
   return `${whole || '0'}.${fraction}`;
+}
+
+export type RoundMode = 'half-up' | 'floor' | 'ceil';
+
+/** The smallest amount shown, in ISO minor units: 100 for TWD (whole dollars), 1 for AUD and JPY. */
+export function displayUnit(currency: string): MinorUnits {
+  return 10 ** (getCurrency(currency).minorUnits - displayDecimals(currency));
+}
+
+/**
+ * Rounds ISO minor units to what is shown for the currency (whole dollars for
+ * TWD): 70060 -> 70100. Only for display and settling up; calculations keep the
+ * exact amount. half-up rounds halves away from zero; floor and ceil go down and up.
+ */
+export function roundToDisplayUnit(
+  minor: MinorUnits,
+  currency: string,
+  mode: RoundMode = 'half-up',
+): MinorUnits {
+  if (!Number.isSafeInteger(minor)) throw new Error(`Amount must be integer minor units, got ${minor}`);
+  const unit = displayUnit(currency);
+  const rest = ((minor % unit) + unit) % unit;
+  const down = minor - rest;
+  if (rest === 0 || mode === 'floor') return down;
+  if (mode === 'ceil') return down + unit;
+  const halfUp = minor < 0 ? rest > unit / 2 : rest >= unit / 2;
+  return halfUp ? down + unit : down;
 }
 
 /** Rounded to whole units, for estimates like "About $1,101 a month". */

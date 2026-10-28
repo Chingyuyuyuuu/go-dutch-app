@@ -69,6 +69,15 @@ import {
   Image,
   CalendarClock,
   UserX,
+  Store,
+  Pill,
+  Package,
+  CreditCard,
+  TrainFront,
+  Ticket,
+  Compass,
+  PlaneTakeoff,
+  Wifi,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -144,6 +153,15 @@ const ICONS = {
   image: Image,
   'calendar-clock': CalendarClock,
   'user-x': UserX,
+  store: Store,
+  pill: Pill,
+  package: Package,
+  'credit-card': CreditCard,
+  'train-front': TrainFront,
+  ticket: Ticket,
+  compass: Compass,
+  'plane-takeoff': PlaneTakeoff,
+  wifi: Wifi,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;
