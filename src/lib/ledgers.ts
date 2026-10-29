@@ -1,6 +1,6 @@
 import { isIncomeCategory } from './categories';
 import type { LocalDate } from './date';
-import { settledAmount, type Entry, type Ledger, type LedgerPref } from './domain';
+import { settledAmount, type Entry, type Ledger, type LedgerPref, type UserProfile } from './domain';
 import type { MinorUnits } from './money';
 
 /**
@@ -33,33 +33,52 @@ export type RouteResult =
   | { kind: 'choose'; ledgerIds: string[]; defaultId: string };
 
 /**
- * Which personal ledger a personal expense or income goes to.
- * - started from a personal tab of the same currency: use that ledger
+ * Which personal ledger a personal expense or income goes to. Any currency can go
+ * to any ledger (it is converted), so only where the entry started matters:
+ * - started from a personal tab: use that ledger
  * - 0 ledgers: ask to create one; 1: use it; 2+: let the user pick, last used first
+ * `currency` limits the choice to one settlement currency (adding my shared-ledger
+ * share to a personal ledger needs the same one).
  */
 export function routePersonalEntry(params: {
-  currency: string;
   ledgers: Ledger[];
   fixedLedgerId?: string | null;
-  lastUsedLedgerId?: string;
+  lastLedgerId?: string | null;
+  currency?: string;
 }): RouteResult {
-  const { currency, ledgers, fixedLedgerId, lastUsedLedgerId } = params;
-  const candidates = ledgers.filter(
-    (l) => l.kind === 'personal' && l.status === 'active' && l.currency === currency,
-  );
+  const { ledgers, fixedLedgerId, lastLedgerId, currency } = params;
+  const candidates = activePersonalLedgers(ledgers).filter((l) => !currency || l.currency === currency);
   if (fixedLedgerId && candidates.some((l) => l.id === fixedLedgerId)) {
     return { kind: 'auto', ledgerId: fixedLedgerId };
   }
   if (candidates.length === 0) return { kind: 'none' };
   if (candidates.length === 1) return { kind: 'auto', ledgerId: candidates[0].id };
   const ids = candidates.map((l) => l.id);
-  const lastUsed = lastUsedLedgerId && ids.includes(lastUsedLedgerId) ? lastUsedLedgerId : undefined;
+  const lastUsed = lastLedgerId && ids.includes(lastLedgerId) ? lastLedgerId : undefined;
   const ledgerIds = lastUsed ? [lastUsed, ...ids.filter((id) => id !== lastUsed)] : ids;
   return { kind: 'choose', ledgerIds, defaultId: ledgerIds[0] };
 }
 
+export function activePersonalLedgers(ledgers: Ledger[]): Ledger[] {
+  return ledgers.filter((l) => l.kind === 'personal' && l.status === 'active');
+}
+
+/** Active personal ledgers settled in `currency`. */
 export function personalLedgersFor(currency: string, ledgers: Ledger[]): Ledger[] {
-  return ledgers.filter((l) => l.kind === 'personal' && l.status === 'active' && l.currency === currency);
+  return activePersonalLedgers(ledgers).filter((l) => l.currency === currency);
+}
+
+/**
+ * The personal ledger used last: `lastLedgerId`, or before Phase 6 (old apps only
+ * kept one per currency in `lastUsedLedger`) the first of those that still exists.
+ */
+export function lastPersonalLedgerId(
+  profile: Pick<UserProfile, 'lastLedgerId' | 'lastUsedLedger'>,
+  ledgers: Ledger[],
+): string | null {
+  const personal = activePersonalLedgers(ledgers).map((l) => l.id);
+  if (profile.lastLedgerId && personal.includes(profile.lastLedgerId)) return profile.lastLedgerId;
+  return Object.values(profile.lastUsedLedger).find((id) => personal.includes(id)) ?? null;
 }
 
 export type Summary = { spent: MinorUnits; income: MinorUnits; balance: MinorUnits };

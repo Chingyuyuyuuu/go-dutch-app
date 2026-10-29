@@ -78,6 +78,7 @@ import {
   Compass,
   PlaneTakeoff,
   Wifi,
+  Info,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -162,6 +163,7 @@ const ICONS = {
   compass: Compass,
   'plane-takeoff': PlaneTakeoff,
   wifi: Wifi,
+  info: Info,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

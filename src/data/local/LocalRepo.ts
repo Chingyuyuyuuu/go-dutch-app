@@ -18,13 +18,14 @@ import {
   type Recurring,
   type UserProfile,
 } from '@/lib/domain';
-import { settlementFor } from '@/lib/fx';
+import { crossRate, settlementFor, suggestedRate, type RateSuggestion } from '@/lib/fx';
 import { personalLedgersFor } from '@/lib/ledgers';
 import { chargesBefore, dueCharges, recurringSplitShares } from '@/lib/recurring';
 
+import { SAMPLE_USD_RATES } from '../demo/rates';
 import type { DataRepo, FriendsState, NewLedger, NewMember, Unsubscribe } from '../repo';
 import type { MediaStore } from '../supabase/photos';
-import type { SyncEngine } from '../sync/SyncEngine';
+import type { ShareLink, SyncEngine } from '../sync/SyncEngine';
 import type { LocalState, LocalStore } from './LocalStore';
 import type { BankPatch, LedgerPatch, Op, RecurringPatch } from './ops';
 
@@ -259,6 +260,19 @@ export class LocalRepo implements DataRepo {
     return id;
   }
 
+  setLedgerRate(ledgerId: string, currency: string, rate: string, recalcAll: boolean): number {
+    const ledger = this.ledger(ledgerId);
+    if (!ledger || currency === ledger.currency) return 0;
+    this.updateLedger(ledgerId, { rates: { ...ledger.rates, [currency]: rate } });
+    if (!recalcAll) return 0;
+    // Each is an ordinary edit, so shared ledgers keep the edit history.
+    const stale = (this.state.entries[ledgerId] ?? []).filter(
+      (e) => e.currency === currency && e.fxSource === 'ledger' && e.fxRate !== rate,
+    );
+    stale.forEach((e) => this.updateEntry(ledgerId, e.id, { currency, fxRate: rate, fxSource: 'ledger' }));
+    return stale.length;
+  }
+
   updateEntry(ledgerId: string, entryId: string, patch: Partial<NewEntry>) {
     let previous: Entry | undefined;
     let updated: Entry | undefined;
@@ -428,6 +442,48 @@ export class LocalRepo implements DataRepo {
       this.photoUrls.set(photo, url);
     }
     return url;
+  }
+
+  async shareLink(ledgerId: string, action: 'open' | 'regenerate' | 'revoke') {
+    if (!this.sync) return 'demo' as const;
+    const result = await this.sync.online(async (remote): Promise<ShareLink> => {
+      if (action === 'revoke') {
+        await remote.revokeShareLink(ledgerId);
+        const link = await remote.getShareLink(ledgerId);
+        return { token: link?.token ?? '', live: false };
+      }
+      if (action === 'open') {
+        const link = await remote.getShareLink(ledgerId);
+        if (link && !link.live) return link;
+      }
+      return { token: await remote.createShareLink(ledgerId, action === 'regenerate'), live: true };
+    });
+    return result ?? ('offline' as const);
+  }
+
+  async requestJoin(token: string, memberId: string | null) {
+    if (!this.sync) return 'demo' as const;
+    return (await this.sync.online((remote) => remote.requestJoin(token, memberId))) ?? ('offline' as const);
+  }
+
+  async answerJoinRequest(requestId: string, approve: boolean) {
+    if (!this.sync) return 'demo' as const;
+    return (
+      (await this.sync.online((remote) => remote.answerJoinRequest(requestId, approve), true)) ??
+      ('offline' as const)
+    );
+  }
+
+  async suggestRate(from: string, to: string): Promise<RateSuggestion | null> {
+    if (from === to) return null;
+    const market = this.sync
+      ? await this.sync.midRate(from, to)
+      : (() => {
+          const mid = crossRate(SAMPLE_USD_RATES, 'USD', from, to);
+          return mid ? { mid, asOf: todayLocal() } : null;
+        })();
+    const rate = market && suggestedRate(market.mid);
+    return market && rate ? { rate, mid: market.mid, asOf: market.asOf, sample: !this.sync } : null;
   }
 
   // ---- bank accounts

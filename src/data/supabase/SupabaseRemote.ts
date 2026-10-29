@@ -10,6 +10,8 @@ import {
   type BalanceCheck,
   type Entry,
   type EntryType,
+  type JoinRequest,
+  type RateChange,
   type FxSource,
   type Friend,
   type Invite,
@@ -28,7 +30,17 @@ import { FREQUENCIES } from '@/lib/recurring';
 import { normaliseRate } from '@/lib/fx';
 
 import type { BankPatch, LedgerPatch, Op, RecurringPatch } from '../local/ops';
-import type { AcceptInviteResult, PulledEntry, PullResult, PushResult, RemoteApi } from '../sync/SyncEngine';
+import type {
+  AcceptInviteResult,
+  AnswerJoinResult,
+  MidRate,
+  RequestJoinResult,
+  ShareLink,
+  PulledEntry,
+  PullResult,
+  PushResult,
+  RemoteApi,
+} from '../sync/SyncEngine';
 
 // All columns: a server one migration behind (or ahead) still syncs.
 const ENTRY_COLUMNS = '*';
@@ -191,6 +203,59 @@ export class SupabaseRemote implements RemoteApi {
     if (error) throw error;
   }
 
+  async midRate(from: string, to: string): Promise<MidRate | null> {
+    const { data, error } = await this.sb.rpc('mid_rate', { p_from: from, p_to: to });
+    if (error) throw error;
+    const row: unknown = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row !== 'object') return null;
+    const { mid, as_of: asOf } = row as Row;
+    const rate = typeof mid === 'number' || typeof mid === 'string' ? normaliseRate(String(mid)) : null;
+    return rate && typeof asOf === 'string' ? { mid: rate, asOf } : null;
+  }
+
+  async getShareLink(ledgerId: string): Promise<ShareLink | null> {
+    const { data, error } = await this.sb
+      .from('ledger_share_links')
+      .select('token, revoked_at')
+      .eq('ledger_id', ledgerId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? { token: str(data.token), live: !data.revoked_at } : null;
+  }
+
+  async createShareLink(ledgerId: string, regenerate: boolean): Promise<string> {
+    const { data, error } = await this.sb.rpc('create_share_link', {
+      p_ledger_id: ledgerId,
+      p_regenerate: regenerate,
+    });
+    if (error) throw error;
+    return str(data);
+  }
+
+  async revokeShareLink(ledgerId: string): Promise<void> {
+    const { error } = await this.sb.rpc('revoke_share_link', { p_ledger_id: ledgerId });
+    if (error) throw error;
+  }
+
+  async requestJoin(token: string, memberId: string | null): Promise<RequestJoinResult> {
+    const { data, error } = await this.sb.rpc('request_join', { p_token: token, p_member_id: memberId });
+    if (error) throw error;
+    return oneOf<RequestJoinResult>(
+      ['sent', 'pending', 'member', 'taken', 'invalid', 'signed-out'],
+      data,
+      'invalid',
+    );
+  }
+
+  async answerJoinRequest(requestId: string, approve: boolean): Promise<AnswerJoinResult> {
+    const { data, error } = await this.sb.rpc('answer_join_request', {
+      p_request_id: requestId,
+      p_approve: approve,
+    });
+    if (error) throw error;
+    return oneOf<AnswerJoinResult>(['approved', 'rejected', 'taken', 'answered', 'gone'], data, 'gone');
+  }
+
   async acceptInvite(code: string): Promise<AcceptInviteResult> {
     const { data, error, status } = await this.sb.rpc('accept_invite', { p_code: code });
     if (error) {
@@ -207,15 +272,17 @@ export class SupabaseRemote implements RemoteApi {
       if (error && !MISSING_TABLE.includes(error.code ?? '')) throw error;
       return error ? [] : (data ?? []);
     };
-    const [recurringRows, bankRows] = await Promise.all([
+    const [recurringRows, bankRows, requestRows] = await Promise.all([
       optional<Row>(sb.from('recurring').select('*').is('deleted_at', null)),
       optional<Row>(sb.from('bank_accounts').select('*').is('deleted_at', null)),
+      // Phase 6 share page: join requests waiting for an answer.
+      optional<Row>(sb.from('ledger_join_requests').select('*').eq('status', 'pending')),
     ]);
     const [profileRes, ledgersRes, prefsRes, friendsRes, placeholdersRes, invitesRes] = await Promise.all([
       sb.from('profiles').select('*').eq('id', this.uid).maybeSingle(),
       sb.from('ledgers').select(
         // All ledger columns: works with or without the Phase 6 migration.
-        '*, ledger_members(id, user_id, placeholder_id, display_name, left_at)',
+        '*, ledger_members(*)',
       ),
       sb.from('ledger_prefs').select('*').eq('user_id', this.uid),
       sb.from('friendships').select('friend_id, friend_name, starred').eq('user_id', this.uid),
@@ -225,7 +292,12 @@ export class SupabaseRemote implements RemoteApi {
     for (const res of [profileRes, ledgersRes, prefsRes, friendsRes, placeholdersRes, invitesRes]) {
       if (res.error) throw res.error;
     }
-    const ledgers = (ledgersRes.data ?? []).map(toLedger);
+    const requests = requestRows.map(toJoinRequest);
+    const ledgers = (ledgersRes.data ?? []).map((row) => {
+      const ledger = toLedger(row);
+      const waiting = requests.filter((r) => r.ledgerId === ledger.id).map(({ ledgerId: _, ...r }) => r);
+      return waiting.length > 0 ? { ...ledger, joinRequests: waiting } : ledger;
+    });
 
     // Re-read a small overlap before the cursor: rows committed slightly out of order are not missed.
     const since = cursor ? new Date(Date.parse(cursor) - 2 * 60_000).toISOString() : null;
@@ -490,6 +562,9 @@ function toLedger(row: Row): Ledger {
     placeholderId: strOrNull(m.placeholder_id),
     name: str(m.display_name),
     leftAt: m.left_at ? time(m.left_at) : null,
+    ...(m.share_joined_at !== undefined && {
+      shareJoinedAt: m.share_joined_at ? time(m.share_joined_at) : null,
+    }),
   }));
   const categorySet = str(row.category_set);
   return {
@@ -500,11 +575,34 @@ function toLedger(row: Row): Ledger {
     ...('entry_currency' in row && { entryCurrency: strOrNull(row.entry_currency) }),
     ...(isCategorySet(categorySet) && { categorySet }),
     ...(row.rates !== undefined && { rates: toRates(row.rates) }),
+    ...(row.rate_changes !== undefined && { rateChanges: toRateChanges(row.rate_changes) }),
     kind: row.kind === 'shared' ? 'shared' : 'personal',
     status: row.status === 'ended' ? 'ended' : 'active',
     ownerUid: str(row.owner_id),
     members,
     memberUids: members.filter((m) => m.uid && m.leftAt === null).map((m) => m.uid as string),
+    createdAt: time(row.created_at),
+  };
+}
+
+function toRateChanges(value: unknown): Record<string, RateChange> {
+  if (!value || typeof value !== 'object') return {};
+  const changes: Record<string, RateChange> = {};
+  for (const [code, change] of Object.entries(value as Record<string, Row>)) {
+    if (!change || typeof change !== 'object') continue;
+    const rate = typeof change.rate === 'string' ? normaliseRate(change.rate) : null;
+    if (rate) changes[code] = { byUid: strOrNull(change.by), rate, at: time(change.at) };
+  }
+  return changes;
+}
+
+function toJoinRequest(row: Row): JoinRequest & { ledgerId: string } {
+  return {
+    id: str(row.id),
+    ledgerId: str(row.ledger_id),
+    uid: str(row.user_id),
+    name: str(row.requester_name),
+    memberId: strOrNull(row.member_id),
     createdAt: time(row.created_at),
   };
 }

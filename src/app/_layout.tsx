@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppDataProvider, useAppData } from '@/data/AppDataProvider';
 import { useAcceptPendingInvite } from '@/features/friends/usePendingInvite';
+import { useSendPendingJoin } from '@/features/share/useSendPendingJoin';
 import { useReminders } from '@/features/notifications/useReminders';
 import { FONT_ASSETS } from '@/ui/theme/fonts';
 import { ThemeProvider, useApplyTheme, useColors } from '@/ui/theme/ThemeProvider';
@@ -49,6 +50,7 @@ function RootStack() {
   const { session, profile } = useAppData();
   useApplyTheme(profile.bgTheme, profile.accentTheme);
   useAcceptPendingInvite();
+  useSendPendingJoin();
   useReminders();
   if (session.status === 'loading') return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   const signedIn = session.status === 'ready';
@@ -62,6 +64,7 @@ function RootStack() {
         <Stack.Screen name="add/split" />
         <Stack.Screen name="ledger/new" />
         <Stack.Screen name="ledger/[id]" />
+        <Stack.Screen name="ledger/rates/[id]" />
         <Stack.Screen name="friends" />
         <Stack.Screen name="entry/[ledgerId]/[entryId]" />
         <Stack.Screen name="reorder" />
@@ -76,8 +79,9 @@ function RootStack() {
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="sign-in" />
       </Stack.Protected>
-      {/* Invite links work signed in or out. */}
+      {/* Invite links and share pages work signed in or out. */}
       <Stack.Screen name="invite/[code]" />
+      <Stack.Screen name="s/[token]" />
     </Stack>
   );
 }

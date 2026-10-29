@@ -2,7 +2,7 @@ import { Pressable, View } from 'react-native';
 
 import { BUBBLE_BORDER, BubbleFrost, useBubbleLook } from '@/features/appearance/bubble';
 import { useI18n } from '@/i18n';
-import type { Entry } from '@/lib/domain';
+import { entryCurrency, settledAmount, type Entry } from '@/lib/domain';
 import { formatMoney } from '@/lib/money';
 import { Tag } from '@/ui/Buttons';
 import { CategoryCircle } from '@/ui/CategoryCircle';
@@ -21,13 +21,17 @@ export function EntryBubble({
   title,
   subtitle,
   tags = [],
+  subtitleLines = 1,
   onPress,
 }: {
   entry: Entry;
+  /** The ledger's settlement currency. */
   currency: string;
   title?: string;
   subtitle?: string;
   tags?: { label: string; tone: 'accent' | 'sage' }[];
+  /** Lines the subtitle may take (the share page shows a longer "your share" line). */
+  subtitleLines?: number;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -36,13 +40,17 @@ export function EntryBubble({
   const income = entry.type === 'income';
   const repayment = entry.type === 'repayment';
   const categoryLabel = t(`category.${entry.categoryCode}`);
-  const amount = formatMoney(currency, entry.amountMinor, { sign: income ? '+' : '' });
+  const paidIn = entryCurrency(entry, { currency });
+  const amount = formatMoney(paidIn, entry.amountMinor, { sign: income ? '+' : '' });
+  // Another currency: the converted amount underneath (no ⓘ here, the edit screen has it).
+  const converted =
+    paidIn === currency ? null : t('fx.approx', { amount: formatMoney(currency, settledAmount(entry)) });
   const shownTitle = title ?? (entry.note || categoryLabel);
   const shownSubtitle = subtitle ?? (entry.note ? categoryLabel : '');
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${shownTitle}, ${amount}${shownSubtitle ? `, ${shownSubtitle}` : ''}`}
+      accessibilityLabel={`${shownTitle}, ${amount}${converted ? ` ${converted}` : ''}${shownSubtitle ? `, ${shownSubtitle}` : ''}`}
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: 'row',
@@ -83,7 +91,7 @@ export function EntryBubble({
           {shownTitle}
         </Txt>
         {shownSubtitle ? (
-          <Txt size={12.5} color={colors.neutral[700]} numberOfLines={1}>
+          <Txt size={12.5} color={colors.neutral[700]} numberOfLines={subtitleLines}>
             {shownSubtitle}
           </Txt>
         ) : null}
@@ -97,6 +105,11 @@ export function EntryBubble({
         >
           {amount}
         </Txt>
+        {converted && (
+          <Txt size={12} tabular color={colors.neutral[700]}>
+            {converted}
+          </Txt>
+        )}
         {tags.map((tag) => (
           <Tag
             key={tag.label}

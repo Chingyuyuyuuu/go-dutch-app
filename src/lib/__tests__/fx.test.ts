@@ -1,10 +1,13 @@
 import {
   allocateSettle,
   convertMinor,
+  crossRate,
   isValidRate,
   normaliseRate,
   parseRate,
+  previewConversion,
   rateFromAmounts,
+  sanitizeRateText,
   settlementFor,
   suggestedRate,
 } from '../fx';
@@ -192,5 +195,70 @@ describe('settlementFor (same rules as the server guard)', () => {
         amountSettleMinor: 200000,
       },
     );
+  });
+});
+
+describe('previewConversion', () => {
+  const ledger = { currency: 'TWD', rates: { JPY: '0.2102' } };
+
+  it('needs nothing in the settlement currency', () => {
+    expect(previewConversion(100000, 'TWD', ledger)).toEqual({ kind: 'same' });
+  });
+
+  it('converts with the ledger rate', () => {
+    expect(previewConversion(10000, 'JPY', ledger)).toEqual({
+      kind: 'converted',
+      currency: 'JPY',
+      settleCurrency: 'TWD',
+      rate: '0.2102',
+      source: 'ledger',
+      settleMinor: 210200,
+    });
+  });
+
+  it("prefers the entry's own rate", () => {
+    expect(previewConversion(10000, 'JPY', ledger, '0.2131')).toMatchObject({
+      source: 'manual',
+      rate: '0.2131',
+      settleMinor: 213100,
+    });
+  });
+
+  it('reports a currency the ledger has no rate for', () => {
+    expect(previewConversion(5000, 'KRW', ledger)).toEqual({
+      kind: 'missing',
+      currency: 'KRW',
+      settleCurrency: 'TWD',
+    });
+    expect(previewConversion(5000, 'KRW', { currency: 'TWD' }, 'oops')).toMatchObject({ kind: 'missing' });
+  });
+});
+
+describe('crossRate', () => {
+  const usd = { TWD: '32.2', JPY: '155.5', AUD: '1.52' };
+
+  it('crosses two currencies through the base', () => {
+    expect(crossRate(usd, 'USD', 'JPY', 'TWD')).toBe('0.207073955');
+    expect(suggestedRate(crossRate(usd, 'USD', 'JPY', 'TWD') ?? '')).toBe('0.2102');
+  });
+
+  it('handles the base on either side', () => {
+    expect(crossRate(usd, 'USD', 'USD', 'TWD')).toBe('32.2');
+    expect(crossRate(usd, 'USD', 'TWD', 'USD')).toBe('0.0310559006');
+  });
+
+  it('is null for an unknown currency', () => {
+    expect(crossRate(usd, 'USD', 'XYZ', 'TWD')).toBeNull();
+  });
+});
+
+describe('sanitizeRateText', () => {
+  it('keeps one point and at most 10 digits each side', () => {
+    expect(sanitizeRateText('0.2102')).toBe('0.2102');
+    expect(sanitizeRateText('.21')).toBe('0.21');
+    expect(sanitizeRateText('00.2.1a')).toBe('0.21');
+    expect(sanitizeRateText('1,380')).toBe('1380');
+    expect(sanitizeRateText('0.123456789012')).toBe('0.1234567890');
+    expect(sanitizeRateText('12345678901')).toBe('1234567890');
   });
 });

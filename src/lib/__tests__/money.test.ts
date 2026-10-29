@@ -1,11 +1,16 @@
 import {
   fitInputToDecimals,
+  formatAmountNumber,
   formatInput,
   formatMinorNumber,
   formatMoney,
+  formatMoneyExact,
   formatSignedMoney,
+  inputDecimals,
   inputToMinor,
+  isoDecimals,
   minorToInput,
+  minorToTypedInput,
   pressKey,
   sanitizeAmountText,
   type KeypadKey,
@@ -18,7 +23,7 @@ describe('formatMoney', () => {
     expect(formatMoney('AUD', 123450)).toBe('$1,234.50');
     expect(formatMoney('AUD', 5)).toBe('$0.05');
     expect(formatMoney('JPY', 250000)).toBe('¥250,000');
-    expect(formatMoney('TWD', 30000)).toBe('NT$300.00');
+    expect(formatMoney('TWD', 30000)).toBe('NT$300');
     expect(formatMoney('CHF', 1000)).toBe('CHF 10.00');
     expect(formatMoney('BHD', 1234)).toBe('BHD 1.234');
   });
@@ -31,6 +36,40 @@ describe('formatMoney', () => {
 
   it('rejects non-integer amounts', () => {
     expect(() => formatMinorNumber(12.5, 2)).toThrow();
+  });
+
+  it('shows TWD to the dollar, keeping the stored cents out of sight', () => {
+    expect(formatMoney('TWD', 70060)).toBe('NT$701');
+    expect(formatMoney('TWD', 70049)).toBe('NT$700');
+    expect(formatMoney('TWD', 1250)).toBe('NT$13');
+    expect(formatSignedMoney('TWD', -70060)).toBe('−NT$701');
+    expect(formatAmountNumber('TWD', 123456789)).toBe('1,234,568');
+  });
+
+  it('rounds shown amounts down or up when asked', () => {
+    expect(formatMoney('TWD', 33334, { round: 'floor' })).toBe('NT$333');
+    expect(formatMoney('TWD', 33333, { round: 'ceil' })).toBe('NT$334');
+    expect(formatMoney('AUD', 33333, { round: 'ceil' })).toBe('$333.33');
+  });
+
+  it('shows all ISO decimals when exact', () => {
+    expect(formatMoneyExact('TWD', 70060)).toBe('NT$700.60');
+    expect(formatMoneyExact('JPY', 3333)).toBe('¥3,333');
+  });
+});
+
+describe('TWD input', () => {
+  it('types whole dollars and stores cents', () => {
+    expect(inputDecimals('TWD')).toBe(0);
+    expect(isoDecimals('TWD')).toBe(2);
+    expect(type(['1', '.', '0', '0', '0'], inputDecimals('TWD'))).toBe('1000');
+    expect(inputToMinor('1000', isoDecimals('TWD'))).toBe(100000);
+  });
+
+  it('prefills the shown amount', () => {
+    expect(minorToTypedInput(70060, 'TWD')).toBe('701');
+    expect(minorToTypedInput(1250, 'AUD')).toBe('12.5');
+    expect(minorToInput(1250, isoDecimals('TWD'))).toBe('12.5');
   });
 });
 

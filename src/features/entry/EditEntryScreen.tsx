@@ -5,19 +5,23 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { draftFromEntry, draftShares, SplitForm, type SplitDraft } from '@/features/shared/SplitForm';
 import { useI18n } from '@/i18n';
-import { categoryGrid, type CategoryCode } from '@/lib/categories';
+import type { CategoryCode } from '@/lib/categories';
 import { getCurrency } from '@/lib/currency';
 import { dayLabel, todayLocal } from '@/lib/date';
+import { entryCurrency, ledgerRate, ownerMemberId, type FxSource } from '@/lib/domain';
+import { allocateSettle, convertMinor } from '@/lib/fx';
 import {
+  formatAmountNumber,
   formatInput,
-  formatMinorNumber,
   formatMoney,
+  inputDecimals,
   inputToMinor,
+  isoDecimals,
   minorToInput,
   pressKey,
 } from '@/lib/money';
+import { memberName } from '@/features/shared/members';
 import { PillButton, SectionLabel } from '@/ui/Buttons';
-import { CategoryCircle } from '@/ui/CategoryCircle';
 import { Icon } from '@/ui/Icon';
 import { Keypad } from '@/ui/Keypad';
 import { Dialog } from '@/ui/Overlay';
@@ -28,8 +32,11 @@ import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 
 import { CalendarPicker } from './CalendarPicker';
+import { useCategoryGrid } from './categories';
 import { DateChip } from './CategoryScreen';
+import { CategoryStrip } from './CategoryStrip';
 import { useEditingEntry } from './draft';
+import { ConversionLine, FxInfoSheet } from './fx';
 
 /**
  * Edit or delete one entry (tapped from the home list). Not in the design
@@ -44,8 +51,12 @@ export function EditEntryScreen() {
   const { ledgers } = useAppData();
   const entry = useEditingEntry((s) => s.entry);
   const ledger = ledgers.find((l) => l.id === entry?.ledgerId);
-  const decimals = ledger ? getCurrency(ledger.currency).minorUnits : 2;
+  // The currency it was paid in: its amount and shares are in this currency.
+  const currency = entry && ledger ? entryCurrency(entry, ledger) : 'AUD';
+  const decimals = isoDecimals(currency);
+  const typed = inputDecimals(currency);
 
+  // An old TWD entry with cents keeps them until the amount is retyped.
   const [input, setInput] = useState(entry ? minorToInput(entry.amountMinor, decimals) : '');
   const [categoryCode, setCategoryCode] = useState<CategoryCode | undefined>(entry?.categoryCode);
   const [note, setNote] = useState(entry?.note ?? '');
@@ -54,26 +65,39 @@ export function EditEntryScreen() {
   const [dateOpen, setDateOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [split, setSplit] = useState<SplitDraft | null>(() =>
-    entry && ledger && entry.isSplit ? draftFromEntry(ledger, entry) : null,
+    entry && ledger && entry.isSplit ? draftFromEntry(ledger, entry, currency) : null,
   );
+  // This entry's own rate: it keeps the rate it was saved with, even if the ledger rate changes.
+  const [fx, setFx] = useState<{ rate: string; source: FxSource }>(() => ({
+    rate: entry?.fxRate ?? '1',
+    source: entry?.fxSource ?? 'same',
+  }));
+  const [fxOpen, setFxOpen] = useState(false);
+  const isIncome = split ? split.kind === 'income' : entry?.type === 'income';
+  const categories = useCategoryGrid(ledger, isIncome ? 'income' : 'expense');
   const today = todayLocal();
 
   if (!entry || !ledger || !categoryCode) return <Redirect href="/" />;
 
-  const { symbol } = getCurrency(ledger.currency);
+  const { symbol } = getCurrency(currency);
   const minor = inputToMinor(input, decimals);
-  const isIncome = split ? split.kind === 'income' : entry.type === 'income';
-  // TODO(phase 6): use the ledger's category set once ledgers store one.
-  const codes = categoryGrid('au_life', isIncome ? 'income' : 'expense', [entry.categoryCode]).grid;
+  const foreign = currency !== ledger.currency;
+  // A personal copy of a split keeps the converted share it was given (spec §13.6).
+  const settleMinor = !foreign
+    ? minor
+    : fx.source === 'split' && minor === entry.amountMinor && entry.amountSettleMinor !== undefined
+      ? entry.amountSettleMinor
+      : convertMinor(minor, currency, ledger.currency, fx.rate);
+  const fxFields = foreign ? { currency, fxRate: fx.rate, fxSource: fx.source } : {};
 
   const repayment = entry.type === 'repayment';
 
   const save = () => {
     if (!minor) return toast(t('entry.enterAmountFirst'));
-    const base = { amountMinor: minor, categoryCode, note: note.trim(), date };
+    const base = { amountMinor: minor, categoryCode, note: note.trim(), date, ...fxFields };
     if (split) {
       const allocation = draftShares(split, minor, decimals);
-      if (!allocation.ok) return toast(t('split.overTotal', { amount: formatMoney(ledger.currency, minor) }));
+      if (!allocation.ok) return toast(t('split.overTotal', { amount: formatMoney(currency, minor) }));
       repo.updateEntry(ledger.id, entry.id, {
         ...base,
         type: split.kind,
@@ -120,7 +144,7 @@ export function EditEntryScreen() {
             adjustsFontSizeToFit
             style={{ flexShrink: 1 }}
           >
-            {keypadOpen ? formatInput(input) : formatMinorNumber(minor, decimals)}
+            {keypadOpen ? formatInput(input) : formatAmountNumber(currency, minor)}
           </Txt>
           {keypadOpen && (
             <View style={{ width: 3, height: 44, borderRadius: 2, backgroundColor: colors.accent }} />
@@ -130,49 +154,55 @@ export function EditEntryScreen() {
             {`${ledger.name} · ${ledger.currency}`}
           </Txt>
         </Pressable>
+        {foreign && (
+          <View style={{ marginTop: -10 }}>
+            <ConversionLine
+              conversion={{
+                kind: 'converted',
+                currency,
+                settleCurrency: ledger.currency,
+                rate: fx.rate,
+                source: fx.source === 'manual' ? 'manual' : 'ledger',
+                settleMinor,
+              }}
+              onInfo={() => setFxOpen(true)}
+              onAddRate={() => setFxOpen(true)}
+            />
+          </View>
+        )}
         {keypadOpen && (
           <Keypad
-            decimals={decimals}
+            decimals={typed}
             keyHeight={48}
             fontSize={24}
             deleteLabel={t('entry.keypadDelete')}
-            onKey={(key) => setInput(pressKey(input, key, decimals))}
+            onKey={(key) => setInput(pressKey(input, key, typed))}
           />
         )}
 
         {split && (
-          <SplitForm ledger={ledger} myUid={repo.uid} total={minor} draft={split} onChange={setSplit} />
+          <SplitForm
+            ledger={ledger}
+            myUid={repo.uid}
+            currency={currency}
+            total={minor}
+            settleTotal={foreign ? settleMinor : null}
+            draft={split}
+            onChange={setSplit}
+          />
         )}
 
         {!repayment && (
           <View style={{ gap: 8 }}>
             <SectionLabel>{t('entry.category')}</SectionLabel>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-              {codes.map((code) => {
-                const on = code === categoryCode;
-                return (
-                  <Pressable
-                    key={code}
-                    accessibilityRole="button"
-                    aria-selected={on}
-                    accessibilityLabel={t(`category.${code}`)}
-                    onPress={() => setCategoryCode(code)}
-                    style={{ width: 62, alignItems: 'center', gap: 5 }}
-                  >
-                    <CategoryCircle
-                      code={code}
-                      size={50}
-                      iconSize={21}
-                      background={on ? colors.accent : colors.surface}
-                      color={on ? colors.bg : isIncome ? colors.accent2Ramp[800] : colors.accentRamp[800]}
-                    />
-                    <Txt size={12} align="center" numberOfLines={2}>
-                      {t(`category.${code}`)}
-                    </Txt>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <CategoryStrip
+              key={isIncome ? 'income' : 'expense'}
+              grid={categories.grid}
+              more={categories.more}
+              selected={categoryCode}
+              income={isIncome}
+              onSelect={setCategoryCode}
+            />
           </View>
         )}
 
@@ -234,6 +264,49 @@ export function EditEntryScreen() {
         />
       </View>
 
+      {fxOpen && foreign && (
+        <FxInfoSheet
+          amountMinor={minor}
+          currency={currency}
+          settleCurrency={ledger.currency}
+          rate={fx.rate}
+          source={fx.source}
+          ledgerName={ledger.name}
+          hasLedgerRate={!!ledgerRate(ledger, currency)}
+          shares={
+            split && draftShares(split, minor, decimals).ok
+              ? (() => {
+                  const allocation = draftShares(split, minor, decimals);
+                  if (!allocation.ok) return undefined;
+                  const settled = allocateSettle(settleMinor, allocation.shares);
+                  const ownerId = ownerMemberId(ledger);
+                  return split.memberIds.map((id) => ({
+                    id,
+                    name: memberName(
+                      ledger.members.find((m) => m.id === id),
+                      repo.uid,
+                      t,
+                    ),
+                    share: allocation.shares[id] ?? 0,
+                    settle: settled[id] ?? 0,
+                    owner: id === ownerId,
+                  }));
+                })()
+              : undefined
+          }
+          readOnly={ledger.status === 'ended'}
+          onSetRate={(rate) => {
+            const fallback = ledgerRate(ledger, currency);
+            if (rate) setFx({ rate, source: 'manual' });
+            else if (fallback) setFx({ rate: fallback, source: 'ledger' });
+          }}
+          onOpenLedgerRates={() => {
+            setFxOpen(false);
+            router.push({ pathname: '/ledger/rates/[id]', params: { id: ledger.id } });
+          }}
+          onClose={() => setFxOpen(false)}
+        />
+      )}
       {confirmDelete && (
         <Dialog onClose={() => setConfirmDelete(false)}>
           <Txt font="heading" size={24} lineHeight={28}>

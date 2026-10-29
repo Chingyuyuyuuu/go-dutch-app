@@ -18,6 +18,22 @@ export type LedgerMember = {
   name: string;
   /** Set when the member left (or deleted the ledger from their tabs). Their debts stay. */
   leftAt: number | null;
+  /** When they joined from the share link (claimed this member or joined as a new one). */
+  shareJoinedAt?: number | null;
+};
+
+/** Who last changed a ledger rate (server-recorded), for "Amy changed the JPY rate to 0.211". */
+export type RateChange = { byUid: string | null; rate: string; at: number };
+
+/** A pending request to join a shared ledger from its share page (spec §6B.3). */
+export type JoinRequest = {
+  id: string;
+  uid: string;
+  /** The requester's name when they asked. */
+  name: string;
+  /** The member without an account they say they are; null = a new member. */
+  memberId: string | null;
+  createdAt: number;
 };
 
 export type Ledger = {
@@ -31,6 +47,10 @@ export type Ledger = {
   categorySet?: CategorySet;
   /** Ledger rates: currency -> rate string ("0.2102" = 1 JPY in the settlement currency). */
   rates?: Record<string, string>;
+  /** Shared ledgers: who last changed each rate. */
+  rateChanges?: Record<string, RateChange>;
+  /** Shared ledgers: join requests from the share page waiting for an answer. */
+  joinRequests?: JoinRequest[];
   kind: LedgerKind;
   status: LedgerStatus;
   ownerUid: string;
@@ -164,7 +184,7 @@ export type UserProfile = {
 export const DEFAULT_PROFILE: UserProfile = {
   displayName: '',
   locale: 'system',
-  starredCurrencies: ['AUD', 'TWD'],
+  starredCurrencies: ['TWD', 'JPY'],
   lastUsedLedger: {},
   lastLedgerId: null,
   bankReminder: 'weekly',
@@ -260,6 +280,11 @@ export function ledgerCategorySet(ledger: Pick<Ledger, 'categorySet'>): Category
 /** The members' rate for a currency in this ledger, if set. */
 export function ledgerRate(ledger: Pick<Ledger, 'rates'>, currency: string): string | null {
   return ledger.rates?.[currency] ?? null;
+}
+
+/** The member who created the ledger (rounds down in shown shares and settle-ups), if still listed. */
+export function ownerMemberId(ledger: Pick<Ledger, 'members' | 'ownerUid'>): string | null {
+  return ledger.members.find((m) => m.uid === ledger.ownerUid)?.id ?? null;
 }
 
 /** The member row for an account, if it is an active member. */

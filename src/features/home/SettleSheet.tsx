@@ -8,7 +8,15 @@ import type { Transfer } from '@/lib/balances';
 import { getCurrency } from '@/lib/currency';
 import { todayLocal } from '@/lib/date';
 import type { Ledger, LedgerMember } from '@/lib/domain';
-import { formatInput, formatMoney, inputToMinor, minorToInput, pressKey } from '@/lib/money';
+import {
+  formatInput,
+  formatMoney,
+  inputDecimals,
+  inputToMinor,
+  isoDecimals,
+  minorToInput,
+  pressKey,
+} from '@/lib/money';
 import { PillButton, Tag } from '@/ui/Buttons';
 import { Icon } from '@/ui/Icon';
 import { Keypad } from '@/ui/Keypad';
@@ -39,7 +47,10 @@ export function SettleSheet({
   const repo = useRepo();
   const [index, setIndex] = useState(0);
   const [input, setInput] = useState('');
-  const { symbol, minorUnits } = getCurrency(ledger.currency);
+  const { symbol } = getCurrency(ledger.currency);
+  // Transfers are already rounded to what is shown (settleUpTransfers), so they fit the keypad.
+  const typed = inputDecimals(ledger.currency);
+  const iso = isoDecimals(ledger.currency);
   const transfer = transfers[Math.min(index, transfers.length - 1)];
   if (!transfer) return null;
 
@@ -50,7 +61,7 @@ export function SettleSheet({
     repo.uid,
     t,
   );
-  const entered = Math.min(transfer.amount, inputToMinor(input, minorUnits));
+  const entered = Math.min(transfer.amount, inputToMinor(input, iso));
   const isFull = entered === transfer.amount;
   const money = (m: number) => formatMoney(ledger.currency, m);
   const avatar = (id: string) => (
@@ -66,11 +77,9 @@ export function SettleSheet({
   );
 
   const onKey = (key: Parameters<typeof pressKey>[1]) => {
-    const next = pressKey(input, key, minorUnits);
+    const next = pressKey(input, key, typed);
     // Never more than what is owed.
-    setInput(
-      inputToMinor(next, minorUnits) > transfer.amount ? minorToInput(transfer.amount, minorUnits) : next,
-    );
+    setInput(inputToMinor(next, iso) > transfer.amount ? minorToInput(transfer.amount, iso) : next);
   };
 
   const record = () => {
@@ -192,7 +201,7 @@ export function SettleSheet({
         </View>
         <Pressable
           accessibilityRole="button"
-          onPress={() => setInput(minorToInput(transfer.amount, minorUnits))}
+          onPress={() => setInput(minorToInput(transfer.amount, iso))}
           style={{
             height: 44,
             paddingHorizontal: 14,
@@ -218,7 +227,7 @@ export function SettleSheet({
         {body}
       </Txt>
       <Keypad
-        decimals={minorUnits}
+        decimals={typed}
         keyHeight={50}
         fontSize={26}
         deleteLabel={t('entry.keypadDelete')}

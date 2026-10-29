@@ -4,7 +4,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useAppData, useLedgerEntries } from '@/data/AppDataProvider';
 import { useI18n } from '@/i18n';
 import { monthName, parseLocalDate, startOfMonth, todayLocal } from '@/lib/date';
-import { personalLedgersFor, summarise } from '@/lib/ledgers';
+import { activePersonalLedgers, lastPersonalLedgerId, summarise } from '@/lib/ledgers';
 import { formatMoney } from '@/lib/money';
 import { withAlpha } from '@/lib/color';
 import { Icon, type IconName } from '@/ui/Icon';
@@ -24,12 +24,9 @@ export function WidgetsScreen() {
   const { t, lang } = useI18n();
   const { orderedLedgers, profile } = useAppData();
   const today = todayLocal();
-  const currency = profile.starredCurrencies[0] ?? 'AUD';
-  const personal = personalLedgersFor(currency, orderedLedgers);
-  const ledger =
-    personal.find((l) => l.id === profile.lastUsedLedger[currency]) ??
-    personal[0] ??
-    orderedLedgers.find((l) => l.kind === 'personal');
+  const lastId = lastPersonalLedgerId(profile, orderedLedgers);
+  const ledger = orderedLedgers.find((l) => l.id === lastId) ?? activePersonalLedgers(orderedLedgers)[0];
+  const currency = ledger?.currency ?? profile.starredCurrencies[0] ?? 'TWD';
   const entries = useLedgerEntries(ledger?.id, startOfMonth(today));
   const spent = summarise(entries).spent;
   const open = (type: Shortcut) => router.push({ pathname: '/add', params: { type } });
@@ -53,7 +50,7 @@ export function WidgetsScreen() {
         <View style={{ flexDirection: 'row', gap: 22 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${t('home.addEntry')}, ${formatMoney(ledger?.currency ?? currency, spent)}`}
+            accessibilityLabel={`${t('home.addEntry')}, ${formatMoney(currency, spent)}`}
             onPress={() => open('expense')}
             style={{
               width: 158,
@@ -73,7 +70,7 @@ export function WidgetsScreen() {
                 })}
               </Txt>
               <Txt font="heading" size={26} lineHeight={28} tabular numberOfLines={1} adjustsFontSizeToFit>
-                {formatMoney(ledger?.currency ?? currency, spent)}
+                {formatMoney(currency, spent)}
               </Txt>
               <Txt size={12} color={colors.neutral[700]}>
                 {t('widgets.spent')}

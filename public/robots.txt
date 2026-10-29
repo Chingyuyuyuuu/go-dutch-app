@@ -1,0 +1,3 @@
+# Shared ledger pages (/s/...) are private to whoever has the link.
+User-agent: *
+Disallow: /s/

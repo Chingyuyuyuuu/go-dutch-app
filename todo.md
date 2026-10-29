@@ -12,6 +12,12 @@
 - [ ] 👤 **上線前**刪除測試帳號（開發期間先保留，自動測試會繼續用）：SQL Editor 執行 `delete from auth.users where email like 'gd-test-%@example.com';`，會連同測試帳本、好友關係一起刪除
 - [x] **套用 Phase 4 的資料庫變更**（2026-10-27 完成）：Supabase → SQL Editor → 貼上並執行 `supabase/migrations/20261028000000_recurring_banks.sql` 整個檔案（定期扣款、銀行帳戶）。**要在下次 push 到 main 之前做**，網頁版才會有這些功能；沒套用也不會壞，只是定期扣款、銀行帳戶不會同步到雲端
 - [ ] **套用 Phase 6 的資料庫變更**：SQL Editor 執行 `supabase/migrations/20261030000000_fx_categories.sql`（帳本匯率、記帳幣別、類別組、`last_ledger_id`）。沒套用也不會壞：新版 App 照常同步，只是之後的外幣紀錄、類別組等設定不會上傳。建議在外幣畫面上線前做
+- [ ] **套用 Phase 6 的第二個資料庫變更**：在上一個 SQL 之後執行 `supabase/migrations/20261031000000_fx_rates.sql`（市場中間價表 `fx_rates`、`mid_rate`、新帳號預設常用幣別 TWD／JPY）。沒套用時建議匯率不會出現，使用者要自己填
+- [ ] **套用 Phase 6 的第三個資料庫變更**：在上面兩個 SQL 之後執行 `supabase/migrations/20261101000000_rate_notices_share_links.sql`（改匯率提示、免登入分享頁、從分享頁加入的申請）。沒套用時：分享按鈕會顯示「連不上伺服器」，改匯率提示不會出現，其他功能照常
+- [ ] **部署抓匯率的 Edge Function 並排程**（套用上面的 SQL 之後）：
+  1. 這台電腦執行 `npx supabase login`，再 `npx supabase functions deploy fetch-fx-rates --project-ref <你的專案 ID>`（或在 Supabase 後台 Edge Functions → Deploy a new function，貼上 `supabase/functions/fetch-fx-rates/index.ts`）
+  2. Integrations → Cron → Create job → 類型選「Supabase Edge Function」→ 選 `fetch-fx-rates`，每天一次（例如 `15 0 * * *`）
+  3. 手動執行一次，到 Table Editor 看 `fx_rates` 有沒有今天的資料
 - [ ] **確認 Cron 有開（每小時自動記入扣款）**：到 Integrations → Cron 看有沒有 `go-dutch-recurring` 這個排程。我從外面查不到 Cron 狀態（SQL 執行時如果出現「pg_cron not set up」就是沒開）。執行上面的 SQL 時如果下方出現「pg_cron not set up」的提示，到 Integrations → Cron 開啟，再到 SQL Editor 執行一行 `select cron.schedule('go-dutch-recurring', '7 * * * *', 'select public.run_all_recurring()');`。沒開的話，App 每次開啟、同步時也會記入到期的扣款，只是手機沒開就不會記
 - [x] **套用 Phase 5 的資料庫變更**（2026-10-27 完成）：SQL Editor 再執行 `supabase/migrations/20261029000000_appearance_account.sql`（外觀設定、首頁照片的儲存空間 `home-photos`、刪除帳號）。要在上一個檔案之後執行
 - [x] 用你的專案跑定期扣款、銀行對帳、首頁照片上傳、刪除帳號的端到端測試（2026-10-27，23 項通過，見 log.md）
@@ -79,7 +85,8 @@
 - [x] **匯率來源**：→ **決定：中間價用自己的 `fx_rates` 表，伺服器每天從一般匯率 API 抓；不直接用臺灣銀行，不分買價、賣價（2026-10-28）**
 - [x] **台幣、日幣不顯示小數**：→ **決定：四捨五入到整數（2026-10-28）**（同日更新：計算過程不取整，見下面「台幣取整規則」）
 - [x] **換算資訊圖示**：→ **決定：換算後的台幣旁加 ⓘ，說明匯率、算式，並可修改匯率（2026-10-28）**
-- [ ] 👤 **確認匯率 API**：候選 ExchangeRate-API 免費端點（每天更新、可商用、要標示來源、不可轉售）。實作前確認有 TWD；建議值旁要放來源標示，你可以接受嗎？不行就換一家，只影響伺服器那支程式
+- [ ] 👤 **確認匯率 API**：已先用 ExchangeRate-API 免費端點（`open.er-api.com`，每天更新、有 TWD、不用金鑰；條款要求標示來源，建議值旁已放「Rates By Exchange Rate API」）。你可以接受嗎？不行就換一家，只影響 `supabase/functions/fetch-fx-rates`
+- [x] **「退稅（日本免稅）」在 4 欄格子裡會換行** → **決定：改叫「免稅退稅」（2026-10-28）**
 - [ ] **改帳本匯率**：預設只套用到之後新增的紀錄，另外可選「全部重算」（單筆修正過的不改）。（暫用）
 - [ ] **離線建立帳本**：拿不到建議值，要使用者自己填匯率才能建立。（暫用）
 - [ ] **改版前的帳本**：類別組設成「澳洲生活」，畫面不變；新帳本預設「日本旅遊」。（暫用）
@@ -96,6 +103,22 @@
 - [ ] **定期扣款要不要支援外幣**（例如每月日圓訂閱）：（暫用：Phase 6 不做）
 
 > **每個階段結束都部署一次網頁預覽**，把網址記在 log.md，讓你用瀏覽器檢查畫面與流程。
+
+## 👤 Phase 7 需要你決定的事（2026-10-28 新增）
+
+規劃見下面「Phase 7」與 spec.md §17。括號是我的建議。
+
+- [ ] **Bundle ID / Package name**（上架後永遠不能改）：目前 `com.godutch.app`。（建議：`com.chipinla.app`，或你有網域就用網域倒過來寫）
+- [ ] **英文名稱**：`Chiping In` 還是 `Chipping In`？（建議：上架前定案，商店名稱改起來麻煩）
+- [ ] **正式環境的 Supabase**：（建議：另開一個**正式專案**，區域選**東京 ap-northeast-1**（使用者在台灣、日本，現在的雪梨離太遠）；現在這個專案留著當開發／測試用。正式專案開 **Pro 方案（US$25/月）**：免費方案一週沒人用會自動暫停、沒有每日備份）
+- [ ] **網域**：分享連結、邀請連結、隱私權政策、點連結直接開 App 都需要自己的網域。（建議：買一個，例如 `chipinla.app`，一年約 US$15–20）
+- [ ] **1.0 版的登入方式**：Email／Apple／Google。（建議：三種都做。App Store 規定有 Google 登入就必須也有 Apple 登入）
+- [ ] **1.0 版要不要有小工具與推播**：（建議：1.0 先做**推播**和**當機回報**；小工具放 1.1，因為要寫 Swift／Kotlin 原生程式、測試成本高）
+- [ ] **正式版保留「試用模式」嗎**：（建議：保留登入頁的「先試用」，對審核和新使用者都有幫助；但正式版**一定要連到伺服器**，不能像現在沒設定就自動進試用模式）
+- [ ] **Apple 開發者帳號用個人還是公司**：個人名義審核快（1–2 天），商店顯示你的本名；公司要先申請 D-U-N-S 編號（可能要幾週），商店顯示公司名
+- [ ] **App 圖示與啟動畫面**：目前是 **Expo 範本的預設圖示**（藍色 A），一定要換。誰來設計？
+- [ ] **當機回報**：（建議：Sentry 免費方案）
+- [ ] **免費或收費**（Phase 5 就列了）：（建議：1.0 全免費，不做訂閱）
 
 ## Phase 1｜基礎建設與設計系統 ✅（程式完成；Supabase 實際連線待你的專案）
 
@@ -237,34 +260,129 @@
 - [x] 純函式＋單元測試：匯率字串解析與 BigInt 換算（到 ISO 最小單位）、half-up、實用小數位（TWD = 0，只用在輸入與顯示）、最大餘數分配 `shares_settle`（同餘數依成員順序）、分帳與結清的取整（建立者捨去、其他人進位）、從實際金額反推匯率、建議值 4 位有效數字
 - [x] migration：`ledgers.entry_currency`、`rates`（帳本匯率）；`entries.currency`、`fx_rate`、`fx_source`（ledger / manual / same / split）、`amount_settle_minor`、`shares_settle`；舊資料補值；漏填換算欄位時伺服器補同幣別；`profiles.last_ledger_id`；`ledger_prefs.share_target_ledger_id`
 - [x] `guard_entry_write`（漏填補同幣別、`split` 不檢查）、`sync_personal_copies`／`personal_ledger_for`（計入的那筆 `fx_source = split`）；手機上的結餘計算（`balances.ts`）改用換算後金額；RLS 與 PGlite 測試
-- [ ] `fx_rates` 資料表＋每天抓市場中間價的 Edge Function＋pg_cron；`suggest_rate`（中間價 × 1.015）；`set_ledger_rate`（含全部重算與修改歷史）
-- [ ] 帳本設定 · 匯率頁（26b）：各外幣的帳本匯率、修改時「之後新增／全部重算」；分帳帳本改匯率的提示
-- [ ] 換算資訊圖示 ⓘ 與匯率表單（24：匯率、來源、算式、輸入實際台幣金額、修改單筆匯率、修改帳本匯率）、金額畫面換算列、泡泡雙幣別、分帳畫面每人雙幣別
-- [ ] 帳本路由改版（不再依幣別，§5.4）、新增帳本選結算幣別／常用記帳幣別／帳本匯率（預填建議值、來源標示）
-- [ ] 帳本第一次用新外幣時請使用者填匯率（有網路時預填建議值）
-- [ ] 台幣輸入鍵盤不顯示小數點、顯示到元；分帳顯示取整、結清取整、不到 1 元的差額算已結清
-- [ ] 每月檢查、銀行對帳、小工具本月支出改用換算後金額
-- [ ] 第一次使用預設常用幣別 TWD、JPY
+- [x] `fx_rates` 資料表＋每天抓市場中間價的 Edge Function（`fetch-fx-rates`）；`mid_rate`（伺服器只給中間價，× 1.015 在手機算）；改帳本匯率改在手機上做（`setLedgerRate`，含全部重算，見 spec §13.6）
+  - [ ] 👤 部署 Edge Function、設定每天的 Cron（見最上面「現在要你做的事」）
+- [x] 帳本設定 · 匯率頁（26b）：各外幣的帳本匯率、新增幣別、修改時「之後新增／全部重算」
+  - [x] 分帳帳本有人改匯率時，其他成員下次打開這個帳本看到「Amy 把日圓匯率改成 0.211」的提示，分頁上有小點（伺服器記錄誰改的，`ledgers.rate_changes`）
+- [x] 換算資訊圖示 ⓘ 與匯率表單（24：匯率、來源、算式、輸入實際金額、修改單筆匯率、恢復帳本匯率、修改帳本匯率）、金額畫面換算列、類別畫面與備註表單、編輯紀錄、泡泡雙幣別、分帳畫面每人雙幣別
+- [x] 帳本路由改版（不再依幣別，§5.4；上次使用改用 `lastLedgerId`）、新增帳本選結算幣別／常用記帳幣別／帳本匯率（預填建議值、來源標示）／類別組
+- [x] 帳本第一次用新外幣時請使用者填匯率（有網路時預填建議值；儲存時沒有匯率也會先問）
+- [x] 台幣輸入鍵盤不顯示小數點、顯示到元；分帳顯示取整、結清取整、不到 1 元的差額算已結清
+- [x] 每月檢查、銀行對帳、小工具本月支出改用換算後金額
+- [x] 第一次使用預設常用幣別 TWD、JPY（新帳號；舊帳號保留自己的設定）
+- [x] 帳本設定「計入哪個個人帳本」（同結算幣別有 2 個以上時出現）；結束帳本的「加到個人帳本」也照這個順序選
 
 日本旅遊類別（§5.5）
 - [x] `categories.ts`：新增 9 個支出代碼、1 個收入代碼；類別組定義（`categoryGrid`：帳本的組＋用過的其他組類別＋「更多類別」）
 - [x] i18n：新類別的 zh-TW 與 en-AU 名稱；`coffee` 改名
-  - 畫面目前固定用「澳洲生活」組（和改版前一樣），等帳本有 `category_set` 再接上；`退稅（日本免稅）` 在 4 欄格子裡是否太長，接畫面時確認
+  - 類別畫面已接上帳本的類別組；`taxfree_refund` 改名「免稅退稅」（4 欄格子不換行）
 - [x] `ledgers.category_set`（migration＋同步）
-- [ ] 新增帳本與帳本設定可選類別組
-- [ ] 類別畫面依帳本類別組顯示＋「更多類別」，用過的留在格子最後面
+- [x] 新增帳本與帳本設定可選類別組
+- [x] 類別畫面依帳本類別組顯示＋「更多類別」，用過的留在格子最後面（分帳、編輯畫面的橫向類別列也有「更多類別」）
 
 免登入分享頁（§6B）
-- [ ] migration：`ledger_share_links`、`ledger_members.claimed_via_share`、`ledger_join_requests`；function `create_share_link`、`revoke_share_link`、`get_shared_ledger`、`request_join`、`answer_join_request`；匿名權限測試（確認拿不到帳本以外的資料）
-- [ ] 分帳分頁「分享」表單（28）：複製、分享、QR code、停用、重新產生
-- [ ] 網頁路由 `/s/[token]`（29，不經過登入檢查與試用模式）：結餘、紀錄、「我是誰？」、只看跟我有關的、重新整理、`noindex`＋`robots.txt`
-- [ ] 加入帳本流程：送出申請（認領沒有帳號的成員／我不在名單上）→ 建立者同意或拒絕；已有帳號的成員直接登入；同意後其他成員看到「從分享連結加入」提示
-- [ ] 失效連結頁面
+- [x] migration `20261101000000_rate_notices_share_links.sql`：`ledger_share_links`、`ledger_members.claimed_via_share`／`share_joined_at`、`ledger_join_requests`；function `create_share_link`、`revoke_share_link`、`get_shared_ledger`、`request_join`、`answer_join_request`；匿名權限測試（拿不到帳號資料與其他帳本）
+- [x] 分帳分頁「分享」表單（28）：複製、分享、QR code、停用、重新產生（試用模式顯示要登入）
+- [x] 網頁路由 `/s/[token]`（29，不經過登入檢查與試用模式）：結餘、紀錄、「我是誰？」、只看跟我有關的、重新整理、`noindex`＋`robots.txt`
+- [x] 加入帳本流程：送出申請（認領沒有帳號的成員／我不在名單上；沒登入時先登入，登入後自動送出）→ 建立者在帳本設定「加入申請」同意或拒絕（分帳分頁有提示、分頁有小點）；已有帳號的成員直接登入；同意後其他成員看到「從分享連結加入」提示
+- [x] 失效連結頁面
+- [ ] 👤 手機上分享連結要有網站網址：`.env.local` 與 GitHub Variable 的 `EXPO_PUBLIC_WEB_URL`（見最上面「現在要你做的事」）。網頁版不用設定
 
 收尾
 - [ ] typecheck、lint、`npm test`、`npm run test:db`；網頁預覽檢查
 - [ ] 👤 用年底大阪行程實測（日圓＋台幣混記、和旅伴用分享頁）
 - [ ] 部署網頁預覽（部署前先問開發者）
+
+## Phase 7｜上架準備（2026-10-28 規劃，尚未開始）
+
+目標：iOS 與 Android 正式上架。開發者決定「先把程式寫完，再申請開發者帳號」，所以分成 **7A（不需要帳號，現在就能做）** 與 **7B（帳號申請後）**。React Native 的畫面與商業邏輯不用改；要改的是 App 身分設定、正式環境（後端、網域）、登入、原生功能、法律頁面與商店資料。詳細分析見 log.md 2026-10-28「Phase 7 規劃」。
+
+> ⚠️ 例外：**Google Play 的個人新帳號**，正式上架前必須先找 **12 位測試者連續測試 14 天**。所以 Google Play 帳號建議 7A 做到一半就申請，讓 14 天和寫程式同時進行。
+
+### 7A｜不需要開發者帳號（程式與設定）
+
+App 身分與打包設定
+- [ ] 換掉 Bundle ID（等你決定）；版本改 `1.0.0`；英文名稱定案
+- [ ] App 圖示、Android 自適應圖示（前景／背景／單色）、啟動畫面、通知小圖示（等設計）
+- [ ] `app.config.ts`：
+  - iOS `ITSAppUsesNonExemptEncryption: false`（只用 HTTPS，不必每次送審填加密問卷）
+  - iOS 隱私清單 `privacyManifests`（AsyncStorage／SQLite 用到的 UserDefaults、檔案時間戳記等「需要說明原因的 API」）
+  - Android 封鎖用不到的權限（相簿讀取改用系統選照片，不要 `READ_MEDIA_IMAGES`，避免 Google Play 照片權限審查）
+- [ ] `eas.json` 三種打包：`development`（開發版 App）、`preview`（內部測試）、`production`（上架），各自的環境變數（Supabase 網址、網站網址、Sentry）
+- [ ] 打包保護：`production` 沒有 Supabase 設定就**打包失敗**，不能像現在自動進試用模式
+- [ ] 改用 **development build**（不再用 Expo Go）：claude-rule.md「Phase 1–4 要維持 Expo Go 能跑」改寫
+- [ ] **OTA 更新**（`expo-updates`／EAS Update）：上架後小修正不用重新送審；設定 `runtimeVersion`、`preview`／`production` 頻道
+
+登入與帳號
+- [ ] **忘記密碼**（目前沒有）：寄重設信 → 點信中連結開 App（或網頁）設定新密碼
+- [ ] 註冊確認信的連結要能回到 App（深層連結）；正式環境要開「確認 Email」
+- [ ] **手機原生 Apple 登入**（`expo-apple-authentication`）與 **Google 登入**（目前手機上會顯示「之後的版本開放」）；程式可以先寫，實測要等帳號
+- [ ] 登入頁的「試用模式」依你的決定保留或拿掉
+
+原生功能（Phase 5 留下來的）
+- [ ] **推播**：
+  - 手機註冊 Expo Push 權杖，存到新資料表 `push_tokens`（RLS）
+  - 伺服器在分帳紀錄新增／修改／代記還款、加入申請、匯率被改時送通知（Edge Function，或資料庫 trigger 排進佇列）
+  - 設定頁可以關閉各類通知
+- [ ] **當機回報**（Sentry）：手機與網頁；不送帳本金額與備註
+- [ ] 小工具（建議放 1.1）：iOS WidgetKit、Android Glance；App Group 共用本月支出
+- [ ] **點連結直接開 App**（Universal Links／App Links）：`/s/…` 分享頁、`/invite/…` 邀請。需要自己的網域，網站放 `apple-app-site-association` 與 `assetlinks.json`（iOS 的檔案要 Apple Team ID，帳號申請後才填）
+
+測試期間暫用、正式版要整理的
+- [ ] 設定 → 桌面小工具：目前是**預覽畫面**（假的小工具），正式版改成「如何加入小工具」說明，或在小工具做好前隱藏
+- [ ] 試用模式的範例資料是**澳洲生活**（澳幣、Opal、房租）：改成台灣人去日本的情境（也可以直接拿來拍商店截圖）
+- [ ] 程式裡找不到幣別時的預設值 `AUD`（約 10 處）改成 `TWD`
+- [ ] 試用模式的範例匯率（`src/data/demo/rates.ts`）只在試用模式出現，維持標示「範例匯率」即可
+- [ ] 網頁版的手機外框（`WebFrame`）只在電腦瀏覽器出現，手機版不受影響，保留
+- [ ] `docs/design-handoff/` 重複的 PDF、`.claude/settings.json`（之前列過）
+
+網站（同一個 Expo 網頁版）
+- [ ] 隱私權政策 `/privacy`、使用條款 `/terms`（zh-TW、en-AU）
+- [ ] **刪除帳號說明頁** `/delete-account`（Google Play 規定要有網頁版的刪除方式或說明）
+- [ ] 客服聯絡方式（Email）
+- [ ] 網頁版定位：正式網站 = 分享頁＋法律頁＋（可選）網頁版 App
+
+品質
+- [ ] 實機：VoiceOver／TalkBack、最大字級、離線（飛航模式）記帳後同步、大量紀錄（一年份）的速度
+- [ ] 錯誤畫面：整個 App 當掉時顯示「重新開啟」而不是白畫面（Error Boundary）
+- [ ] 確認所有 `console.warn` 不會記錄金額、備註等個人資料
+
+後端（正式環境）
+- [ ] 正式 Supabase 專案（區域、方案等你決定）
+- [ ] migration 改用 **Supabase CLI**（`supabase db push`）套用，資料庫會記錄套過哪些；不再手動貼到 SQL Editor
+- [ ] Edge Function（`fetch-fx-rates`、推播）用 CLI 部署；Cron：每小時定期扣款、每天匯率
+- [ ] Email：開「確認 Email」、自訂寄信服務（SMTP，例如 Resend；Supabase 內建的每小時只能寄幾封，只適合開發）、中英文信件範本
+- [ ] Auth 網址設定：Site URL 改成正式網域，Redirect URLs 加 App 的深層連結
+- [ ] 安全：跑 Supabase 的 Security Advisor／Performance Advisor；Pro 方案開「洩漏密碼檢查」；考慮登入頁加 CAPTCHA
+- [ ] 備份與監控：每日備份（Pro）、錯誤通知
+- [ ] 開發用專案的測試帳號 `gd-test-*`：正式專案是新的就不用刪；留在開發專案
+
+CI
+- [ ] GitHub Actions 加：`main` 上跑 EAS Build（preview）、打 tag 時 production build＋送審（EAS Submit）
+- [ ] migration 自動套用到開發專案（需要 Supabase access token 當 Secret）
+
+### 7B｜開發者帳號申請後
+
+帳號（申請順序建議：Google Play 先、Apple 後）
+- [ ] 👤 Google Play Console（US$25 一次）：申請後**先開封閉測試**，找 12 位測試者測 14 天
+- [ ] 👤 Apple Developer Program（US$99／年）
+- [ ] 👤 Expo：EAS 免費方案每月打包次數有限、要排隊；上架前後可能需要 Starter 方案
+
+打包與測試
+- [ ] Android：EAS Build → 內部測試 → 封閉測試（14 天）→ 正式版
+- [ ] iOS：EAS Build → TestFlight（自己＋朋友）→ 送審
+- [ ] Apple／Google 登入的正式設定（Apple Service ID 與金鑰、Google OAuth client ID：iOS、Android、網頁各一個），填到 Supabase
+- [ ] 推播憑證：iOS APNs 金鑰、Android FCM（`google-services.json`）
+- [ ] Universal Links 的 Team ID、Android 簽章指紋寫進網站
+- [ ] 實機跑完整流程：註冊、記帳、分帳（兩支手機）、分享頁、加入申請、推播、刪除帳號
+
+商店資料
+- [ ] 截圖：iPhone 6.9 吋（必要）、Android 手機；zh-TW 與 en-AU 各一套
+- [ ] 名稱、副標題、說明、關鍵字、類別（財經）、支援網址、隱私權政策網址
+- [ ] App Store 隱私標籤：會收集 Email、使用者內容（帳本、備註、照片）、識別碼（帳號 id）；不追蹤、不廣告
+- [ ] Google Play 資料安全表單、內容分級問卷、**金融功能聲明**（選「不提供金融服務」）、目標年齡
+- [ ] 審核備註：測試帳號與密碼（App 要登入才能用完整功能）、分享頁與分帳要兩個帳號怎麼測
+- [ ] 👤 送審、上架
 
 ## 第二階段（MVP 之後，先記著）
 

@@ -6,9 +6,8 @@ import { AppState, Platform } from 'react-native';
 
 import { useAppData } from '@/data/AppDataProvider';
 import { useI18n } from '@/i18n';
-import { getCurrency } from '@/lib/currency';
 import { parseLocalDate, todayLocal } from '@/lib/date';
-import { formatMinorNumber, formatMoney } from '@/lib/money';
+import { formatAmountNumber, formatMoney } from '@/lib/money';
 import { totalCharges } from '@/lib/recurring';
 import { planReminders, type Reminder } from '@/lib/reminders';
 import { useChargeEdit } from '@/features/recurring/chargeEdit';
@@ -124,7 +123,7 @@ export function useReminders() {
           content: {
             title: t('notif.chargedTitle', { name }),
             body: t('notif.chargedBody', {
-              amount: formatMinorNumber(r.amountMinor, getCurrency(currency).minorUnits),
+              amount: formatAmountNumber(currency, r.amountMinor),
               cur: currency,
               ledger: ledger?.name ?? '',
               category: rec ? t(`category.${rec.categoryCode}`) : '',

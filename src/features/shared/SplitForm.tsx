@@ -3,9 +3,18 @@ import { Pressable, TextInput, View } from 'react-native';
 
 import { useI18n } from '@/i18n';
 import { allocateShares } from '@/lib/balances';
-import { getCurrency } from '@/lib/currency';
-import type { Ledger } from '@/lib/domain';
-import { formatMoney, inputToMinor, minorToInput, sanitizeAmountText, type MinorUnits } from '@/lib/money';
+import { ownerMemberId, type Ledger } from '@/lib/domain';
+import { allocateSettle } from '@/lib/fx';
+import {
+  formatMoney,
+  inputDecimals,
+  inputToMinor,
+  isoDecimals,
+  minorToInput,
+  roundToDisplayUnit,
+  sanitizeAmountText,
+  type MinorUnits,
+} from '@/lib/money';
 import { splitEvenly } from '@/lib/split';
 import { Icon } from '@/ui/Icon';
 import { fonts } from '@/ui/theme/fonts';
@@ -30,7 +39,7 @@ export function newSplitDraft(ledger: Ledger, myUid: string): SplitDraft {
   return { kind: 'expense', memberIds: active.map((m) => m.id), payerId: me?.id ?? '', typed: {} };
 }
 
-/** A draft from an existing split entry (for editing). */
+/** A draft from an existing split entry (for editing). `currency` is the currency it was paid in. */
 export function draftFromEntry(
   ledger: Ledger,
   entry: {
@@ -39,10 +48,11 @@ export function draftFromEntry(
     shares: Record<string, MinorUnits> | null;
     amountMinor: MinorUnits;
   },
+  currency: string,
 ): SplitDraft {
   const shares = entry.shares ?? {};
   const ids = ledger.members.map((m) => m.id).filter((id) => shares[id] !== undefined);
-  const decimals = getCurrency(ledger.currency).minorUnits;
+  const decimals = isoDecimals(currency);
   const equal = splitEvenly(entry.amountMinor, Math.max(1, ids.length));
   const isEqual = ids.every((id, i) => shares[id] === equal[i]);
   const typed: Record<string, string> = {};
@@ -55,7 +65,7 @@ export function draftFromEntry(
   };
 }
 
-/** Shares for a draft, or why they do not work. */
+/** Shares for a draft, or why they do not work. `decimals`: ISO minor units of the entry currency. */
 export function draftShares(draft: SplitDraft, total: MinorUnits, decimals: number) {
   const fixed: Record<string, MinorUnits> = {};
   for (const id of draft.memberIds) {
@@ -67,26 +77,39 @@ export function draftShares(draft: SplitDraft, total: MinorUnits, decimals: numb
 /**
  * Screen 08 body: who is in the split, who paid, and the shares (equal by
  * default; tap an amount to type a custom one, the rest share what is left).
+ * Shares are in the currency paid in (`currency`); with `settleTotal` (another
+ * currency than the ledger's) each share also shows its converted amount.
+ * Shown shares are rounded like the balances: the owner's down, the others' up.
  */
 export function SplitForm({
   ledger,
   myUid,
+  currency,
   total,
+  settleTotal,
   draft,
   onChange,
 }: {
   ledger: Ledger;
   myUid: string;
+  currency: string;
   total: MinorUnits;
+  /** The converted total, when paid in another currency than the ledger's. */
+  settleTotal?: MinorUnits | null;
   draft: SplitDraft;
   onChange: (draft: SplitDraft) => void;
 }) {
   const colors = useColors();
   const { t } = useI18n();
   const [open, setOpen] = useState(true);
-  const { minorUnits: decimals } = getCurrency(ledger.currency);
+  const decimals = isoDecimals(currency);
+  const typedDecimals = inputDecimals(currency);
+  const ownerId = ownerMemberId(ledger);
+  const roundFor = (id: string) => (id === ownerId ? 'floor' : 'ceil');
   const members = ledger.members.filter((m) => m.leftAt === null || draft.memberIds.includes(m.id));
   const allocation = draftShares(draft, total, decimals);
+  const settleShares =
+    allocation.ok && settleTotal != null ? allocateSettle(settleTotal, allocation.shares) : null;
   const custom = Object.keys(draft.typed).length > 0;
   const equalShares = splitEvenly(total, Math.max(1, draft.memberIds.length));
   const rem = total - equalShares[equalShares.length - 1] * draft.memberIds.length;
@@ -210,15 +233,27 @@ export function SplitForm({
                   <Txt size={14} style={{ flex: 1 }} numberOfLines={1}>
                     {name(id)}
                   </Txt>
+                  {settleShares && (
+                    <Txt size={12} tabular color={colors.neutral[700]}>
+                      {t('fx.approx', {
+                        amount: formatMoney(ledger.currency, settleShares[id] ?? 0, { round: roundFor(id) }),
+                      })}
+                    </Txt>
+                  )}
                   <TextInput
                     accessibilityLabel={t('split.editAmount', { name: name(id) })}
-                    value={typedValue ?? (shown !== undefined ? minorToInput(shown, decimals) || '0' : '')}
+                    value={
+                      typedValue ??
+                      (shown !== undefined
+                        ? minorToInput(roundToDisplayUnit(shown, currency, roundFor(id)), decimals) || '0'
+                        : '')
+                    }
                     onChangeText={(text) => {
-                      const clean = sanitizeAmountText(text, decimals);
+                      const clean = sanitizeAmountText(text, typedDecimals);
                       const typed = { ...draft.typed, [id]: clean };
                       onChange({ ...draft, typed });
                     }}
-                    keyboardType="decimal-pad"
+                    keyboardType={typedDecimals ? 'decimal-pad' : 'number-pad'}
                     selectTextOnFocus
                     style={{
                       minWidth: 96,
@@ -239,13 +274,14 @@ export function SplitForm({
             {!allocation.ok ? (
               <Txt size={12} color={colors.negative} style={{ paddingTop: 4 }}>
                 {Object.keys(draft.typed).length >= draft.memberIds.length
-                  ? t('split.mustMatch', { amount: formatMoney(ledger.currency, total) })
-                  : t('split.overTotal', { amount: formatMoney(ledger.currency, total) })}
+                  ? t('split.mustMatch', { amount: formatMoney(currency, total) })
+                  : t('split.overTotal', { amount: formatMoney(currency, total) })}
               </Txt>
-            ) : !custom && rem > 0 ? (
+            ) : !custom && rem > 0 && typedDecimals === decimals ? (
+              // Not for TWD: its cents are not shown, so neither is a remainder of a few cents.
               <Txt size={12} color={colors.neutral[700]} style={{ paddingTop: 4 }}>
                 {t('split.remainder', {
-                  amount: formatMoney(ledger.currency, rem),
+                  amount: formatMoney(currency, rem),
                   count: rem,
                   unit: decimals ? t('split.cent') : t('split.unit'),
                 })}

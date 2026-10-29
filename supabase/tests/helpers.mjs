@@ -27,4 +27,4 @@ export async function as(db, uid, sql, params = []) {
 }
 
 export const TABLES =
-  'public.bank_accounts, public.recurring, public.entry_history, public.invites, public.placeholder_friends, public.friendships, public.entries, public.ledger_prefs, public.ledger_members, public.ledgers, public.profiles, auth.users';
+  'public.ledger_join_requests, public.ledger_share_links, public.fx_rates, public.bank_accounts, public.recurring, public.entry_history, public.invites, public.placeholder_friends, public.friendships, public.entries, public.ledger_prefs, public.ledger_members, public.ledgers, public.profiles, auth.users';

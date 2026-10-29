@@ -162,3 +162,110 @@ describe('totals use the settlement currency', () => {
     expect(spentShare([split], 'b')).toBe(70060);
   });
 });
+
+describe('ledger rates (LocalRepo)', () => {
+  const japan = () => {
+    const env = cloud();
+    const ledgerId = env.repo.createLedger({
+      name: 'Japan',
+      currency: 'TWD',
+      kind: 'personal',
+      rates: { JPY: '0.2102' },
+    });
+    const add = (rate: string, fxSource: 'ledger' | 'manual') =>
+      env.repo.addEntry(ledgerId, {
+        type: 'expense',
+        amountMinor: 10000,
+        categoryCode: 'dining',
+        date: '2026-10-26',
+        note: '',
+        currency: 'JPY',
+        fxRate: rate,
+        fxSource,
+      });
+    return { ...env, ledgerId, byLedger: add('0.2102', 'ledger'), corrected: add('0.2131', 'manual') };
+  };
+
+  it('only changes the ledger rate by default', () => {
+    const { store, repo, ledgerId, byLedger } = japan();
+    expect(repo.setLedgerRate(ledgerId, 'JPY', '0.211', false)).toBe(0);
+    expect(store.state.ledgers.find((l) => l.id === ledgerId)?.rates).toEqual({ JPY: '0.211' });
+    expect(store.state.entries[ledgerId].find((e) => e.id === byLedger)?.amountSettleMinor).toBe(210200);
+  });
+
+  it('re-converts entries at the ledger rate, not the corrected ones', () => {
+    const { store, sent, repo, ledgerId, byLedger, corrected } = japan();
+    expect(repo.setLedgerRate(ledgerId, 'JPY', '0.211', true)).toBe(1);
+    const entries = store.state.entries[ledgerId];
+    expect(entries.find((e) => e.id === byLedger)).toMatchObject({
+      fxRate: '0.211',
+      amountSettleMinor: 211000,
+    });
+    expect(entries.find((e) => e.id === corrected)).toMatchObject({
+      fxRate: '0.2131',
+      amountSettleMinor: 213100,
+    });
+    expect(sent.filter((op) => op.kind === 'updateEntry')).toHaveLength(1);
+  });
+
+  it('suggests a rate from the sample rates in demo mode', async () => {
+    const store = LocalStore.create(memoryKv(), 'demo', seedDemo('2026-10-26', enAU.demo, 1_000_000_000));
+    const repo = new LocalRepo('demo', DEMO_UID, store, newId);
+    await expect(repo.suggestRate('JPY', 'TWD')).resolves.toMatchObject({
+      rate: '0.2102',
+      mid: '0.207073955',
+      sample: true,
+    });
+    await expect(repo.suggestRate('TWD', 'TWD')).resolves.toBeNull();
+    await expect(repo.suggestRate('XAU', 'TWD')).resolves.toBeNull();
+  });
+});
+
+describe('share links (LocalRepo)', () => {
+  const withServer = (link: { token: string; live: boolean } | null) => {
+    const store = LocalStore.create(memoryKv(), 'cloud', seedDemo('2026-10-26', enAU.demo, 1_000_000_000));
+    const calls: string[] = [];
+    const remote = {
+      getShareLink: async () => link,
+      createShareLink: async (_: string, regenerate: boolean) => {
+        calls.push(regenerate ? 'regenerate' : 'create');
+        return 'new-token';
+      },
+      revokeShareLink: async () => {
+        calls.push('revoke');
+      },
+    };
+    const sync = {
+      enqueue: () => {},
+      online: async <T>(call: (r: typeof remote) => Promise<T>) => call(remote),
+    } as unknown as SyncEngine;
+    return { calls, repo: new LocalRepo('cloud', DEMO_UID, store, newId, sync) };
+  };
+
+  it('opens the live link, or makes the first one', async () => {
+    await expect(withServer({ token: 'live', live: true }).repo.shareLink('flat', 'open')).resolves.toEqual({
+      token: 'new-token',
+      live: true,
+    });
+    const first = withServer(null);
+    await expect(first.repo.shareLink('flat', 'open')).resolves.toEqual({ token: 'new-token', live: true });
+    expect(first.calls).toEqual(['create']);
+  });
+
+  it('keeps a turned-off link off until it is regenerated', async () => {
+    const off = withServer({ token: 'old', live: false });
+    await expect(off.repo.shareLink('flat', 'open')).resolves.toEqual({ token: 'old', live: false });
+    expect(off.calls).toEqual([]);
+    await off.repo.shareLink('flat', 'regenerate');
+    await off.repo.shareLink('flat', 'revoke');
+    expect(off.calls).toEqual(['regenerate', 'revoke']);
+  });
+
+  it('is not available in demo mode', async () => {
+    const store = LocalStore.create(memoryKv(), 'demo', seedDemo('2026-10-26', enAU.demo, 1_000_000_000));
+    const repo = new LocalRepo('demo', DEMO_UID, store, newId);
+    await expect(repo.shareLink('flat', 'open')).resolves.toBe('demo');
+    await expect(repo.requestJoin('t', null)).resolves.toBe('demo');
+    await expect(repo.answerJoinRequest('r', true)).resolves.toBe('demo');
+  });
+});

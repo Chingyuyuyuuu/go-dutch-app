@@ -24,6 +24,19 @@ export function parseRate(rate: string): bigint | null {
   return scaled > 0n ? scaled : null;
 }
 
+/** Cleans a typed rate: digits and one point, at most 10 digits on each side. Commas are ignored. */
+export function sanitizeRateText(text: string): string {
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  const dot = cleaned.indexOf('.');
+  const whole = (dot < 0 ? cleaned : cleaned.slice(0, dot)).replace(/^0+(?=\d)/, '').slice(0, 10);
+  if (dot < 0) return whole;
+  const fraction = cleaned
+    .slice(dot + 1)
+    .replace(/\./g, '')
+    .slice(0, RATE_DECIMALS);
+  return `${whole || '0'}.${fraction}`;
+}
+
 export function isValidRate(rate: string): boolean {
   return parseRate(rate) !== null;
 }
@@ -195,3 +208,74 @@ export function settlementFor(
     sharesSettle: entry.shares ? allocateSettle(amountSettleMinor, entry.shares) : null,
   };
 }
+
+/** What the entry screens show under an amount in a ledger settled in another currency. */
+export type Conversion =
+  | { kind: 'same' }
+  /** The ledger has no rate for this currency yet: ask for one before saving. */
+  | { kind: 'missing'; currency: string; settleCurrency: string }
+  | {
+      kind: 'converted';
+      currency: string;
+      settleCurrency: string;
+      rate: string;
+      /** "ledger": the ledger rate; "manual": a rate set for this entry only. */
+      source: 'ledger' | 'manual';
+      settleMinor: MinorUnits;
+    };
+
+/**
+ * The conversion of a new or edited entry: the entry's own rate when one was set
+ * (`manualRate`), else the ledger rate for the currency.
+ */
+export function previewConversion(
+  amountMinor: MinorUnits,
+  currency: string,
+  ledger: { currency: string; rates?: Record<string, string> },
+  manualRate?: string | null,
+): Conversion {
+  const settleCurrency = ledger.currency;
+  if (currency === settleCurrency) return { kind: 'same' };
+  const manual = manualRate ? normaliseRate(manualRate) : null;
+  const ledgerRate = ledger.rates?.[currency] ? normaliseRate(ledger.rates[currency]) : null;
+  const rate = manual ?? ledgerRate;
+  if (!rate) return { kind: 'missing', currency, settleCurrency };
+  return {
+    kind: 'converted',
+    currency,
+    settleCurrency,
+    rate,
+    source: manual ? 'manual' : 'ledger',
+    settleMinor: convertMinor(amountMinor, currency, settleCurrency, rate),
+  };
+}
+
+/**
+ * Cross rate from rates against one base currency (`{ TWD: "32.2", JPY: "155.5" }`
+ * = 1 USD in each): 1 `from` = rates[to] / rates[from] `to`, rounded half-up to
+ * RATE_DECIMALS. The server's suggest_rate does the same with its fx_rates table.
+ */
+export function crossRate(
+  rates: Record<string, string>,
+  base: string,
+  from: string,
+  to: string,
+): string | null {
+  const scaledOf = (code: string) =>
+    code === base ? RATE_SCALE : rates[code] ? parseRate(rates[code]) : null;
+  const fromScaled = scaledOf(from);
+  const toScaled = scaledOf(to);
+  if (fromScaled === null || toScaled === null) return null;
+  const scaled = divRound(toScaled * RATE_SCALE, fromScaled);
+  return scaled > 0n ? formatScaledRate(scaled) : null;
+}
+
+/** A suggested ledger rate (mid-market rate × 1.015) and the mid rate it came from. */
+export type RateSuggestion = {
+  rate: string;
+  mid: string;
+  /** Day of the mid rate (YYYY-MM-DD). */
+  asOf: string;
+  /** Demo mode: made-up sample rates, not market data. */
+  sample: boolean;
+};

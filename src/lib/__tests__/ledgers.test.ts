@@ -1,5 +1,13 @@
 import { PERSONAL_ENTRY_FIELDS, type Entry, type Ledger } from '../domain';
-import { entryTypeFor, groupByDay, moveItem, orderLedgers, routePersonalEntry, summarise } from '../ledgers';
+import {
+  entryTypeFor,
+  groupByDay,
+  lastPersonalLedgerId,
+  moveItem,
+  orderLedgers,
+  routePersonalEntry,
+  summarise,
+} from '../ledgers';
 
 const ledger = (id: string, overrides: Partial<Ledger> = {}): Ledger => ({
   id,
@@ -79,34 +87,62 @@ describe('routePersonalEntry', () => {
     ledger('old', { status: 'ended' }),
   ];
 
-  it('asks to create a ledger when the currency has none', () => {
-    expect(routePersonalEntry({ currency: 'NZD', ledgers })).toEqual({ kind: 'none' });
+  it('asks to create a ledger when there is no personal ledger', () => {
+    expect(routePersonalEntry({ ledgers: [ledger('flat', { kind: 'shared' })] })).toEqual({ kind: 'none' });
   });
 
-  it('uses the only ledger automatically', () => {
-    expect(routePersonalEntry({ currency: 'JPY', ledgers })).toEqual({ kind: 'auto', ledgerId: 'yen' });
+  it('uses the only personal ledger automatically, whatever the currency', () => {
+    expect(
+      routePersonalEntry({
+        ledgers: [ledger('yen', { currency: 'JPY' }), ledger('old', { status: 'ended' })],
+      }),
+    ).toEqual({ kind: 'auto', ledgerId: 'yen' });
   });
 
-  it('lets the user choose with last used first', () => {
-    expect(routePersonalEntry({ currency: 'AUD', ledgers, lastUsedLedgerId: 'travel' })).toEqual({
+  it('lets the user choose between all personal ledgers with last used first', () => {
+    expect(routePersonalEntry({ ledgers, lastLedgerId: 'yen' })).toEqual({
       kind: 'choose',
-      ledgerIds: ['travel', 'living'],
-      defaultId: 'travel',
+      ledgerIds: ['yen', 'living', 'travel'],
+      defaultId: 'yen',
     });
   });
 
-  it('skips the question when started from a personal tab of that currency', () => {
-    expect(routePersonalEntry({ currency: 'AUD', ledgers, fixedLedgerId: 'travel' })).toEqual({
-      kind: 'auto',
-      ledgerId: 'travel',
-    });
+  it('ignores a last used ledger that is gone', () => {
+    expect(routePersonalEntry({ ledgers, lastLedgerId: 'old' })).toMatchObject({ defaultId: 'living' });
   });
 
-  it('ignores the starting tab when the currency was changed', () => {
-    expect(routePersonalEntry({ currency: 'JPY', ledgers, fixedLedgerId: 'living' })).toEqual({
-      kind: 'auto',
-      ledgerId: 'yen',
+  it('skips the question when started from a personal tab', () => {
+    expect(routePersonalEntry({ ledgers, fixedLedgerId: 'yen' })).toEqual({ kind: 'auto', ledgerId: 'yen' });
+  });
+
+  it('never uses a shared tab as the fixed ledger', () => {
+    expect(routePersonalEntry({ ledgers, fixedLedgerId: 'flat' }).kind).toBe('choose');
+  });
+
+  it('limits the choice to one settlement currency when asked', () => {
+    expect(routePersonalEntry({ ledgers, currency: 'JPY' })).toEqual({ kind: 'auto', ledgerId: 'yen' });
+    expect(routePersonalEntry({ ledgers, currency: 'NZD' })).toEqual({ kind: 'none' });
+    expect(routePersonalEntry({ ledgers, currency: 'AUD', fixedLedgerId: 'yen' })).toMatchObject({
+      kind: 'choose',
+      ledgerIds: ['living', 'travel'],
     });
+  });
+});
+
+describe('lastPersonalLedgerId', () => {
+  const ledgers = [ledger('living'), ledger('yen', { currency: 'JPY' }), ledger('old', { status: 'ended' })];
+
+  it('uses lastLedgerId when it still exists', () => {
+    expect(lastPersonalLedgerId({ lastLedgerId: 'yen', lastUsedLedger: { AUD: 'living' } }, ledgers)).toBe(
+      'yen',
+    );
+  });
+
+  it('falls back to the old per-currency map', () => {
+    expect(
+      lastPersonalLedgerId({ lastLedgerId: null, lastUsedLedger: { NZD: 'gone', AUD: 'living' } }, ledgers),
+    ).toBe('living');
+    expect(lastPersonalLedgerId({ lastLedgerId: 'old', lastUsedLedger: {} }, ledgers)).toBeNull();
   });
 });
 

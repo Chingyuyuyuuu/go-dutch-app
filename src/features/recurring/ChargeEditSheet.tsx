@@ -6,7 +6,14 @@ import { ALL_TIME, useAppData, useLedgerEntries, useRepo } from '@/data/AppDataP
 import { useI18n } from '@/i18n';
 import { getCurrency } from '@/lib/currency';
 import { formatDate, todayLocal } from '@/lib/date';
-import { formatMoney, inputToMinor, minorToInput, sanitizeAmountText } from '@/lib/money';
+import {
+  formatMoney,
+  inputDecimals,
+  inputToMinor,
+  isoDecimals,
+  minorToInput,
+  sanitizeAmountText,
+} from '@/lib/money';
 import { nextCharge } from '@/lib/recurring';
 import { PillButton } from '@/ui/Buttons';
 import { Icon } from '@/ui/Icon';
@@ -38,9 +45,11 @@ export function ChargeEditSheet({ target, onClose }: { target: ChargeTarget; onC
   const rec = recurring.find((r) => r.id === (entry?.recurringId ?? target.recurringId));
   const ledger = ledgers.find((l) => l.id === target.ledgerId);
   const currency = ledger?.currency ?? 'AUD';
-  const { symbol, minorUnits } = getCurrency(currency);
+  const { symbol } = getCurrency(currency);
+  const typed = inputDecimals(currency);
+  const iso = isoDecimals(currency);
   const [input, setInput] = useState<string | null>(null);
-  const shown = input ?? (entry ? minorToInput(entry.amountMinor, minorUnits) : '');
+  const shown = input ?? (entry ? minorToInput(entry.amountMinor, iso) : '');
   const name = rec ? recurringTitle(rec, t) : (entry?.note ?? '');
 
   // "Delete" on the notification: remove the charge once it has synced to this phone.
@@ -62,7 +71,7 @@ export function ChargeEditSheet({ target, onClose }: { target: ChargeTarget; onC
   const next = rec ? nextCharge(rec) : null;
 
   const save = () => {
-    const amountMinor = inputToMinor(shown, minorUnits);
+    const amountMinor = inputToMinor(shown, iso);
     if (!entry || !amountMinor) return;
     repo.updateEntry(entry.ledgerId, entry.id, { amountMinor });
     toast(t('charge.updatedTo', { name, amount: formatMoney(currency, amountMinor) }));
@@ -126,8 +135,8 @@ export function ChargeEditSheet({ target, onClose }: { target: ChargeTarget; onC
             </Txt>
             <TextInput
               value={shown}
-              onChangeText={(text) => setInput(sanitizeAmountText(text, minorUnits))}
-              keyboardType={minorUnits ? 'decimal-pad' : 'number-pad'}
+              onChangeText={(text) => setInput(sanitizeAmountText(text, typed))}
+              keyboardType={typed ? 'decimal-pad' : 'number-pad'}
               accessibilityLabel={t('entry.amount')}
               style={{
                 flex: 1,

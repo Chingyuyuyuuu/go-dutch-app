@@ -1,4 +1,11 @@
-import { allocateShares, memberNets, simplifyDebts, spentShare, type BalanceEntry } from '../balances';
+import {
+  allocateShares,
+  memberNets,
+  settleUpTransfers,
+  simplifyDebts,
+  spentShare,
+  type BalanceEntry,
+} from '../balances';
 
 const expense = (payer: string, shares: Record<string, number>): BalanceEntry => ({
   type: 'expense',
@@ -114,5 +121,23 @@ describe('allocateShares', () => {
 
   it('needs at least one member', () => {
     expect(allocateShares(1000, [])).toEqual({ ok: false, reason: 'no-members' });
+  });
+});
+
+describe('settleUpTransfers', () => {
+  it('rounds TWD transfers to the dollar: up, or down when the owner pays', () => {
+    // Amy owes Ben NT$333.34, the owner (me) owes Ben NT$333.33.
+    const net = { me: -33333, amy: -33334, ben: 66667 };
+    expect(settleUpTransfers(net, 'me', 'TWD')).toEqual([
+      { from: 'amy', to: 'ben', amount: 33400 },
+      { from: 'me', to: 'ben', amount: 33300 },
+    ]);
+  });
+
+  it('leaves out what is under one dollar as settled', () => {
+    expect(settleUpTransfers({ me: 66, amy: -66 }, 'me', 'TWD')).toEqual([]);
+    expect(settleUpTransfers({ me: 66, amy: -66 }, 'me', 'AUD')).toEqual([
+      { from: 'amy', to: 'me', amount: 66 },
+    ]);
   });
 });

@@ -194,7 +194,7 @@
 | 娛樂 | `fun` | film | 沿用；扭蛋、遊戲中心 |
 | 其他 | `other` | ellipsis | 沿用 |
 
-- **收入（4）**：退稅（日本免稅）`taxfree_refund`（receipt-text，新增，和澳洲的退稅 `taxrefund` 分開）、退款 `refund`、賣出 `sold`、其他 `other_in`。
+- **收入（4）**：免稅退稅 `taxfree_refund`（2026-10-28 開發者決定，原名「退稅（日本免稅）」在 4 欄格子裡會換行）（receipt-text，新增，和澳洲的退稅 `taxrefund` 分開）、退款 `refund`、賣出 `sold`、其他 `other_in`。
 
 **澳洲生活（原本的類別）**
 
@@ -697,9 +697,11 @@ SQL 在 `supabase/migrations/20261029000000_appearance_account.sql`，測試在 
 **深層連結**：`godutch://add?type=expense|income|split`（網頁 `/add?type=…`）打開金額畫面並標示類型，給桌面小工具用。設定 → 桌面小工具有預覽畫面。
 
 
-### 13.6 Phase 6 新增的結構（2026-10-28；匯率與類別組已實作，分享頁與 `fx_rates` 尚未）
+### 13.6 Phase 6 新增的結構（2026-10-28；全部已實作）
 
-匯率與類別組的 SQL 在 `supabase/migrations/20261030000000_fx_categories.sql`，測試在 `supabase/tests/fx.test.mjs`（14 項）。分享頁、`fx_rates` 之後另外新增 migration，舊檔不改。
+- 匯率與類別組：`supabase/migrations/20261030000000_fx_categories.sql`，測試 `supabase/tests/fx.test.mjs`（14 項）。
+- `fx_rates`、`mid_rate`、新使用者預設常用幣別：`supabase/migrations/20261031000000_fx_rates.sql`，測試 `supabase/tests/fx-rates.test.mjs`（5 項）；Edge Function `supabase/functions/fetch-fx-rates`。
+- 改匯率提示、分享頁、加入申請：`supabase/migrations/20261101000000_rate_notices_share_links.sql`，測試 `supabase/tests/share.test.mjs`（12 項）。
 
 | 資料表／欄位 | 說明 |
 | --- | --- |
@@ -714,9 +716,10 @@ SQL 在 `supabase/migrations/20261029000000_appearance_account.sql`，測試在 
 | `entries.amount_settle_minor` | 換算後金額（結算幣別 ISO 最小單位，bigint，台幣到「分」）；不可為空，漏填時伺服器當作同幣別補上（見下） |
 | `entries.shares_settle` | jsonb：成員編號 → 結算幣別金額（最大餘數法；§6A.5） |
 | `fx_rates` | `date`（唯一）、`base`（中介幣別，例如 `USD`；任兩種幣別用交叉匯率換算）、`rates`（jsonb：幣別 → 匯率字串，**市場中間價**）、`source`、`fetched_at`；所有登入使用者可讀，只有伺服器寫入（pg_cron＋Edge Function 每天抓一次）。**只用來算建立帳本、第一次用新外幣時的建議值**，紀錄換算不讀這張表 |
-| `ledger_share_links` | `ledger_id`（唯一）、`token`（唯一、32 字元）、`created_by`、`created_at`、`revoked_at` |
-| `ledger_members.claimed_via_share` | 這個成員是從分享連結加入的（顯示「從分享連結加入」提示用） |
-| `ledger_join_requests` | 從分享頁加入的申請：`ledger_id`、`user_id`（申請人）、`member_id`（要認領的成員，空的＝新成員）、`status`（pending / approved / rejected）、`created_at`、`answered_by`；申請人與帳本成員可讀，只透過 function 寫入 |
+| `ledgers.rate_changes` | jsonb：幣別 → `{by, rate, at}`，**伺服器 trigger 記錄**誰在什麼時候把這個幣別的帳本匯率改成多少（App 送來的值一律忽略）；其他成員下次打開帳本時顯示「Amy 把日圓匯率改成 0.211」（2026-10-28 實作） |
+| `ledger_share_links` | `ledger_id`（主鍵，一個帳本一個連結）、`token`（唯一、32 個隨機十六進位字元，來自 `gen_random_uuid`）、`created_by`、`created_at`、`revoked_at`；帳本成員可讀，只透過 function 寫入 |
+| `ledger_members.claimed_via_share`、`share_joined_at` | 這個成員是從分享連結加入的、什麼時候加入（顯示「從分享連結加入」提示用） |
+| `ledger_join_requests` | 從分享頁加入的申請：`ledger_id`、`user_id`（申請人）、`requester_name`（申請時的名字）、`member_id`（要認領的成員，空的＝新成員）、`status`（pending / approved / rejected）、`created_at`、`answered_by`、`answered_at`；同一人同一帳本、同一個成員各只能有一筆等待中的申請；申請人與帳本成員可讀，只透過 function 寫入 |
 | `profiles.last_ledger_id` | **（2026-10-28 決定）** 上次使用的個人帳本（一個帳本 id）。**新增欄位**，不改舊的 `last_used_ledger`（幣別 → 帳本 id）：舊欄位留給還沒更新的 App 上傳，不再讀；第一次讀不到新欄位時，取舊欄位裡任一個還在的帳本 |
 | `ledger_prefs.share_target_ledger_id` | 分帳帳本「計入個人帳本」要計入哪個個人帳本（結算幣別必須相同） |
 
@@ -726,10 +729,11 @@ SQL 在 `supabase/migrations/20261029000000_appearance_account.sql`，測試在 
   - **重算並覆蓋**：`amount_settle_minor` = `convert_minor(amount_minor, currency, 帳本幣別, fx_rate)`（到 ISO 最小單位，half-up）；`shares_settle` = `allocate_settle(amount_settle_minor, shares)`；同幣別時 `fx_rate = 1`、`fx_source = same`。外幣卻標 `same` 會被拒絕；還款只能用結算幣別。SQL 有一份 ISO 小數位表（`currency_minor_units`），要和 `src/lib/currency/currencies.data.ts` 一致。
   - **`fx_source = split` 的紀錄不重算**（2026-10-28 決定）：計入個人帳本的那筆，換算後金額來自分帳的 `shares_settle`（最大餘數法），和「分到的原始金額 × 匯率」可能差 1 分。只有伺服器建立、在個人帳本、有 `source_entry_id` 的紀錄可以用 `split`。
 - `sync_personal_copies` 改成依 `share_target_ledger_id` 計入（沒設定時找結算幣別相同的個人帳本），帶上記帳幣別與匯率，`amount_settle_minor` = 這個人的 `shares_settle`，`fx_source = split`。`personal_ledger_for`（目前用 `last_used_ledger ->> 幣別` 找帳本）一起改寫。
-- 新 function：`get_shared_ledger(token)`（匿名可呼叫）、`request_join`、`answer_join_request`、`create_share_link`、`revoke_share_link`、`set_ledger_rate`、`suggest_rate`（見下）。
-- 新 Edge Function＋pg_cron：每天抓一次市場中間價寫入 `fx_rates`。
-- 新 function：`suggest_rate(from, to)`：回傳 `fx_rates` 最新的中間價 × 1.015（四捨五入到 4 位有效數字）與日期；App 在建立帳本、第一次用新外幣時呼叫，離線就不顯示建議值。
-- `set_ledger_rate(ledger_id, currency, rate, recalc_all)`：改帳本匯率；`recalc_all` 時重算 `fx_source = ledger` 的紀錄並寫修改歷史。
+- 新 function（分享頁，尚未實作）：`get_shared_ledger(token)`（匿名可呼叫）、`request_join`、`answer_join_request`、`create_share_link`、`revoke_share_link`。
+- Edge Function `fetch-fx-rates`：從 ExchangeRate-API 的免費端點（`open.er-api.com/v6/latest/USD`，不用金鑰）抓 1 USD 對各幣別的中間價，寫入 `fx_rates`（同一天覆蓋）。用 Supabase 給 Edge Function 的 service role key 寫入，**不在 App 裡**。排程用 Supabase Cron 的「Supabase Edge Function」每天一次（要開發者在後台設定）。
+- **`mid_rate(from, to)`**（2026-10-28 實作時改：原本叫 `suggest_rate`，由伺服器算 × 1.015）：只回傳 `fx_rates` 最新一天的交叉中間價（文字，10 位小數，half-up）與日期，沒有就回傳空的；只有登入使用者能呼叫。**× 1.015 與 4 位有效數字在手機上算**（`suggestedRate`，已有單元測試），只維護一份。App 在建立帳本、第一次用新外幣、改帳本匯率時呼叫；離線或伺服器還沒有這個 function 時不顯示建議值。試用模式用 App 內的範例匯率（標示「試用模式的範例匯率」）。
+- **改帳本匯率在手機上做**（2026-10-28 實作時改：原本規劃伺服器 `set_ledger_rate`）：`setLedgerRate` 先改帳本的 `rates`；選「全部重算」時，把這個帳本裡該幣別、`fx_source = ledger`、匯率不同的紀錄各自改成新匯率（一般的修改，所以離線也能做、分帳帳本會留下修改歷史、伺服器照樣重算換算金額）。`manual`、`split` 的紀錄不動。
+- `profiles.starred_currencies` 的預設值改成 `TWD`、`JPY`（只影響新帳號）。
 
 用戶端：
 - 新的純函式（放 `src/lib/`，要有單元測試）：匯率字串解析與 BigInt 換算、half-up 四捨五入、實用小數位（TWD = 0）、最大餘數分配 `shares_settle`、分帳與結清的取整（建立者捨去、其他人進位）、從實際台幣金額反推匯率、建議值的 4 位有效數字四捨五入。
@@ -839,6 +843,20 @@ Phase 1 定案的其他函式庫（細節見 log.md）：
   - 從分享頁加入一律要帳本建立者同意，同意後通知其他成員；中途加入、退出維持原本的規則（帳本設定可加成員、有欠款也能離開）。
   - 台幣計算到「分」，分帳顯示與結清取整：建立者無條件捨去、其他人無條件進位；結清後不到 1 元的差額算已結清；改版前帶「分」的台幣紀錄不改，只顯示到元（§6A.5）。
   - 「上次使用的帳本」新增欄位 `profiles.last_ledger_id`，舊欄位 `last_used_ledger` 不動、新版 App 不再讀寫（§13.6）。
+- Phase 6 畫面實作細節（2026-10-28，Claude 實作時決定，暫用）：
+  - 新增帳本的結算幣別預設 TWD；從記一筆進來時，那筆的幣別當作常用記帳幣別。常用記帳幣別和結算幣別不同時，一定要填帳本匯率才能建立。
+  - ⓘ 表單的「來源」只分三種：帳本匯率、這一筆自訂的匯率（輸入實際金額或直接改匯率都算這種）、分帳帳本分到的金額。不另外記「實際金額」。
+  - 記一筆時從沒有帳本的地方進來，換算列用「上次使用的帳本」試算；最後記到哪個帳本就用那個帳本的匯率。這一筆自訂的匯率只在結算幣別相同的帳本有效。
+  - 分帳畫面的每人金額：顯示照取整規則（建立者捨去、其他人進位）；均分餘數說明只在顯示全部小數的幣別出現（台幣的「分」不顯示，所以不提）。
+  - 改版前帶「分」的台幣紀錄，編輯時金額保留原本的「分」，直到重新輸入金額。
+  - 分帳帳本有人改匯率時，其他成員看到的提示（「Amy 把日圓匯率改成 0.2110」）還沒做；目前只會看到被重算的紀錄標「X 修改過」。
+- 改匯率提示與分享頁實作細節（2026-10-28，Claude 實作時決定，暫用）：
+  - 改匯率提示：伺服器在 `ledgers.rate_changes` 記下每個幣別最後一次是誰改的；提示跟「新」標籤一樣，以這台裝置上次打開這個帳本的時間為準，只顯示一次，分頁上有小點。自己改的不提示。
+  - 分享表單打開時：沒有連結就自動建立；連結被停用過就維持停用，按「重新產生」才會有新的（舊的永遠失效）。試用模式不能分享。
+  - 分享頁的「我是誰」存在這個瀏覽器（每個連結各記一個）。分享頁沒有即時更新，有「重新整理」。
+  - 沒登入時按「送出申請」：先記住申請，登入後自動送出並顯示結果。
+  - 加入申請在帳本設定的「加入申請」處理；分帳分頁上方有「有 N 個加入申請」提示，只給能處理的人（建立者；建立者離開後任一成員）看。
+  - 從分享頁加入的成員與帳本建立者成為好友；認領的虛擬朋友只換這一個帳本，建立者好友頁的虛擬朋友保留。
 - 階段順序（2026-10-28，開發者決定）：Phase 5 剩下的原生功能（小工具、推播、當機回報）等正式接上 iOS／Android 再做，先留在 todo；先做 Phase 6，之後的新功能依序開 Phase 7、8…。
 
 ## 16. 待確認問題
@@ -854,5 +872,6 @@ Phase 1 定案的其他函式庫（細節見 log.md）：
 4. **定期扣款、銀行對帳、每月檢查**
 5. **桌面小工具、外觀個人化與上架**
 6. **日本旅行：匯率換算、日本旅遊類別、免登入分享頁**（§6A、§5.5、§6B）
+7. **上架準備**（2026-10-28 規劃）：7A 不需要開發者帳號的程式與設定（App 身分、正式環境、忘記密碼、原生登入、推播、當機回報、OTA 更新、法律頁面、測試期間暫用的東西整理）；7B 帳號申請後的打包、實機測試、商店資料、送審。開發者決定先寫完程式再申請帳號；例外是 Google Play 個人新帳號要先封閉測試 14 天，建議提早申請。
 
-Phase 5 的原生功能（小工具、推播、當機回報）先保留在 todo，等正式接上 iOS／Android 再做。Phase 6 之後的新功能依序開 Phase 7、8…。
+Phase 5 的原生功能（小工具、推播、當機回報）併入 Phase 7（小工具建議放 1.1）。之後的新功能依序開 Phase 8、9…。

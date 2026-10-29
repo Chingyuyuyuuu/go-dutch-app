@@ -8,7 +8,16 @@ import { useI18n } from '@/i18n';
 import { lastCheck, reconcile } from '@/lib/banks';
 import { getCurrency } from '@/lib/currency';
 import { addDays, formatDate, todayLocal } from '@/lib/date';
-import { formatInput, formatMoney, inputToMinor, MINUS_SIGN, minorToInput, pressKey } from '@/lib/money';
+import {
+  formatInput,
+  formatMoney,
+  inputDecimals,
+  inputToMinor,
+  isoDecimals,
+  MINUS_SIGN,
+  minorToTypedInput,
+  pressKey,
+} from '@/lib/money';
 import { PillButton } from '@/ui/Buttons';
 import { Icon } from '@/ui/Icon';
 import { Keypad } from '@/ui/Keypad';
@@ -36,8 +45,9 @@ export function UpdateBalanceSheet({ bankId, onClose }: { bankId: string; onClos
   const entries = useEntriesOf(linked, previous ? addDays(previous.date, 1) : today);
   if (!bank) return null;
 
-  const { symbol, minorUnits } = getCurrency(bank.currency);
-  const newBalance = inputToMinor(input, minorUnits);
+  const { symbol } = getCurrency(bank.currency);
+  const typed = inputDecimals(bank.currency);
+  const newBalance = inputToMinor(input, isoDecimals(bank.currency));
   const money = (m: number, sign = '') => formatMoney(bank.currency, Math.abs(m), { sign });
   const result = previous
     ? reconcile({ previous, newBalance, entries, linkedLedgerIds: linked, today })
@@ -148,7 +158,7 @@ export function UpdateBalanceSheet({ bankId, onClose }: { bankId: string; onClos
                   fixedLedgerId: target?.id ?? null,
                   sourceSharedLedgerId: null,
                 });
-                useEntryDraft.getState().set({ input: minorToInput(result.missing, minorUnits) });
+                useEntryDraft.getState().set({ input: minorToTypedInput(result.missing, bank.currency) });
                 router.push('/add');
               }}
             />
@@ -218,11 +228,11 @@ export function UpdateBalanceSheet({ bankId, onClose }: { bankId: string; onClos
         {t('banks.balHint')}
       </Txt>
       <Keypad
-        decimals={minorUnits}
+        decimals={typed}
         keyHeight={50}
         fontSize={26}
         deleteLabel={t('entry.keypadDelete')}
-        onKey={(key) => setInput((v) => pressKey(v, key, minorUnits))}
+        onKey={(key) => setInput((v) => pressKey(v, key, typed))}
       />
       <PillButton
         label={previous ? t('banks.check') : t('banks.saveBalance')}

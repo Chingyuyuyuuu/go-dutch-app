@@ -19,6 +19,7 @@ import {
 } from '@/lib/date';
 import type { Ledger } from '@/lib/domain';
 import { groupByDay, summarise } from '@/lib/ledgers';
+import { joinRequestsToAnswer, ledgerNotices } from '@/lib/share';
 import { formatMoney, formatSignedMoney } from '@/lib/money';
 import { IconButton, PillButton } from '@/ui/Buttons';
 import { Icon } from '@/ui/Icon';
@@ -48,7 +49,7 @@ export function HomeScreen() {
 
   const startAdd = () => {
     useEntryDraft.getState().start({
-      currency: ledger?.currency ?? profile.starredCurrencies[0] ?? 'AUD',
+      currency: ledger?.entryCurrency ?? ledger?.currency ?? profile.starredCurrencies[0] ?? 'TWD',
       fixedLedgerId: ledger?.kind === 'personal' ? ledger.id : null,
       sourceSharedLedgerId: ledger?.kind === 'shared' ? ledger.id : null,
     });
@@ -198,7 +199,7 @@ function LedgerTabs({
               <Txt font="bold" size={11} style={{ letterSpacing: 0.55, opacity: 0.65 }}>
                 {l.currency}
               </Txt>
-              {l.kind === 'shared' && !active && <NewActivityDot ledgerId={l.id} />}
+              {l.kind === 'shared' && !active && <NewActivityDot ledger={l} />}
             </Pressable>
           );
         })}
@@ -223,15 +224,21 @@ function LedgerTabs({
   );
 }
 
-/** A dot on a shared tab when someone else added entries since I last opened it. */
-function NewActivityDot({ ledgerId }: { ledgerId: string }) {
+/**
+ * A dot on a shared tab when someone else added entries, changed a rate or joined
+ * from the share link since I last opened it, or a join request waits for me.
+ */
+function NewActivityDot({ ledger }: { ledger: Ledger }) {
   const colors = useColors();
   const { t } = useI18n();
   const repo = useRepo();
   const { seen } = useAppData();
-  const entries = useLedgerEntries(ledgerId, ALL_TIME);
-  const lastSeen = seen[ledgerId] ?? 0;
-  const hasNew = entries.some((e) => e.createdBy !== repo.uid && e.createdAt > lastSeen);
+  const entries = useLedgerEntries(ledger.id, ALL_TIME);
+  const lastSeen = seen[ledger.id] ?? 0;
+  const hasNew =
+    entries.some((e) => e.createdBy !== repo.uid && e.createdAt > lastSeen) ||
+    ledgerNotices(ledger, repo.uid, lastSeen).length > 0 ||
+    joinRequestsToAnswer(ledger, repo.uid).length > 0;
   if (!hasNew) return null;
   return (
     <View

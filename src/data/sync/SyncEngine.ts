@@ -34,6 +34,13 @@ export type PullResult = {
 
 export type AcceptInviteResult = 'ok' | 'invalid' | 'self' | 'used' | 'offline';
 
+export type ShareLink = { token: string; live: boolean };
+export type RequestJoinResult = 'sent' | 'pending' | 'member' | 'taken' | 'invalid' | 'signed-out';
+export type AnswerJoinResult = 'approved' | 'rejected' | 'taken' | 'answered' | 'gone';
+
+/** A mid-market rate from the server's fx_rates table: 1 unit of one currency in another. */
+export type MidRate = { mid: string; asOf: string };
+
 /** The server side of sync. SupabaseRemote in the app, a fake in tests. */
 export interface RemoteApi {
   push(op: Op): Promise<PushResult>;
@@ -46,6 +53,16 @@ export interface RemoteApi {
   acceptInvite(code: string): Promise<AcceptInviteResult>;
   /** Asks the server to record my recurring charges that are due (it also does this hourly). */
   runRecurring(): Promise<void>;
+  /** Latest mid-market rate (1 `from` in `to`), or null when the server has none. Needs the network. */
+  midRate(from: string, to: string): Promise<MidRate | null>;
+  /** The shared ledger's share link, live or turned off; null when it never had one. */
+  getShareLink(ledgerId: string): Promise<ShareLink | null>;
+  /** Returns the live link's token, making one (or a new one with `regenerate`). */
+  createShareLink(ledgerId: string, regenerate: boolean): Promise<string>;
+  revokeShareLink(ledgerId: string): Promise<void>;
+  /** Asks to join a shared ledger from its share page (spec §6B.3). */
+  requestJoin(token: string, memberId: string | null): Promise<RequestJoinResult>;
+  answerJoinRequest(requestId: string, approve: boolean): Promise<AnswerJoinResult>;
   /** Calls `onChange` when another device changes data. Returns unsubscribe. */
   subscribe(onChange: () => void): () => void;
 }
@@ -129,6 +146,30 @@ export class SyncEngine {
     }
     if (result === 'ok') await this.pull();
     return result;
+  }
+
+  /**
+   * A call that needs the network and is not queued (share links, join requests).
+   * Null when offline or refused; `pullAfter` downloads what it changed.
+   */
+  async online<T>(call: (remote: RemoteApi) => Promise<T>, pullAfter = false): Promise<T | null> {
+    let result: T;
+    try {
+      result = await call(this.remote);
+    } catch {
+      return null;
+    }
+    if (pullAfter) await this.pull();
+    return result;
+  }
+
+  /** Mid-market rate for a suggested ledger rate; null offline or when the server has none. */
+  async midRate(from: string, to: string): Promise<MidRate | null> {
+    try {
+      return await this.remote.midRate(from, to);
+    } catch {
+      return null;
+    }
   }
 
   /** Send pending writes, let the server record due recurring charges, then fetch what changed. */

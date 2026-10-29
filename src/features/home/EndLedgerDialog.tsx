@@ -5,7 +5,7 @@ import { useI18n } from '@/i18n';
 import { spentShare } from '@/lib/balances';
 import { todayLocal } from '@/lib/date';
 import type { Entry, Ledger, LedgerMember } from '@/lib/domain';
-import { routePersonalEntry } from '@/lib/ledgers';
+import { lastPersonalLedgerId, routePersonalEntry } from '@/lib/ledgers';
 import { formatMoney } from '@/lib/money';
 import { PillButton } from '@/ui/Buttons';
 import { Dialog } from '@/ui/Overlay';
@@ -15,7 +15,7 @@ import { Txt } from '@/ui/Txt';
 
 /**
  * Screen 12: end a shared ledger. When my share is handled "at the end", offer
- * to add it to my personal ledger of the same currency (same routing as Add entry).
+ * to add it to my personal ledger with the same settlement currency.
  * Ended ledgers are read-only, move to the end of the tabs, and can be reopened.
  */
 export function EndLedgerDialog({
@@ -36,10 +36,12 @@ export function EndLedgerDialog({
   const { ledgers, prefs, profile } = useAppData();
   const myShare = spentShare(entries, me.id);
   const handling = prefs[ledger.id]?.shareHandling ?? 'ask';
+  // Same order as the server's personal_ledger_for: my chosen ledger, the last used, then the first.
   const route = routePersonalEntry({
     currency: ledger.currency,
     ledgers,
-    lastUsedLedgerId: profile.lastUsedLedger[ledger.currency],
+    fixedLedgerId: prefs[ledger.id]?.shareTargetLedgerId,
+    lastLedgerId: lastPersonalLedgerId(profile, ledgers),
   });
   const targetId = route.kind === 'auto' ? route.ledgerId : route.kind === 'choose' ? route.defaultId : null;
   const target = ledgers.find((l) => l.id === targetId);

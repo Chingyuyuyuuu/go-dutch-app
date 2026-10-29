@@ -1,4 +1,5 @@
 import type { LocalDate } from '@/lib/date';
+import type { RateSuggestion } from '@/lib/fx';
 import type {
   BalanceCheck,
   BankAccount,
@@ -16,7 +17,7 @@ import type {
 } from '@/lib/domain';
 
 import type { BankPatch, LedgerPatch, RecurringPatch } from './local/ops';
-import type { AcceptInviteResult } from './sync/SyncEngine';
+import type { AcceptInviteResult, AnswerJoinResult, RequestJoinResult, ShareLink } from './sync/SyncEngine';
 
 export type Unsubscribe = () => void;
 
@@ -62,6 +63,12 @@ export interface DataRepo {
   updateProfile(patch: Partial<UserProfile>): void;
   createLedger(input: NewLedger): string;
   updateLedger(ledgerId: string, patch: LedgerPatch): void;
+  /**
+   * Sets the ledger rate for a currency (spec §6A.2). With `recalcAll`, entries in
+   * that currency converted at the ledger rate are converted again; entries with
+   * their own rate are left alone. Returns how many entries changed.
+   */
+  setLedgerRate(ledgerId: string, currency: string, rate: string, recalcAll: boolean): number;
   addLedgerMembers(ledgerId: string, members: NewMember[]): void;
   /** Personal: deletes it. Shared: leaves it (deleted for everyone once the last member leaves). */
   removeLedger(ledgerId: string): void;
@@ -97,6 +104,25 @@ export interface DataRepo {
   setHomePhoto(photo: { uri: string; mimeType: string } | null): Promise<'ok' | 'offline'>;
   /** Something an <Image> can show for profile.homePhoto. */
   homePhotoUrl(photo: string): Promise<string | null>;
+
+  /**
+   * Suggested ledger rate for 1 `from` in `to` (mid-market rate × 1.015). Null
+   * offline or when there is no market rate. Demo mode uses sample rates.
+   */
+  suggestRate(from: string, to: string): Promise<RateSuggestion | null>;
+
+  /**
+   * The shared ledger's share link (spec §6B.1). 'open' makes one when it never had
+   * one; a link that was turned off stays off until 'regenerate'. Needs the network.
+   */
+  shareLink(
+    ledgerId: string,
+    action: 'open' | 'regenerate' | 'revoke',
+  ): Promise<ShareLink | 'offline' | 'demo'>;
+  /** Asks to join a shared ledger from its share page. Needs the network. */
+  requestJoin(token: string, memberId: string | null): Promise<RequestJoinResult | 'offline' | 'demo'>;
+  /** Approves or turns down a join request, then downloads the change. Needs the network. */
+  answerJoinRequest(requestId: string, approve: boolean): Promise<AnswerJoinResult | 'offline' | 'demo'>;
 
   /** Saves a balance check (time-stamped now). */
   recordBalance(bankId: string, check: Omit<BalanceCheck, 'at'>): void;

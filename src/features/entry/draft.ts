@@ -21,6 +21,8 @@ type EntryDraft = {
   categoryCode: CategoryCode | null;
   note: string;
   date: LocalDate;
+  /** A rate for this entry only (ⓘ sheet), for ledgers settled in `settleCurrency`. */
+  manualRate: { rate: string; settleCurrency: string } | null;
   start: (params: {
     currency: string;
     fixedLedgerId: string | null;
@@ -42,6 +44,7 @@ export const useEntryDraft = create<EntryDraft>((set) => ({
   categoryCode: null,
   note: '',
   date: todayLocal(),
+  manualRate: null,
   start: (params) =>
     set({
       presetType: null,
@@ -53,6 +56,7 @@ export const useEntryDraft = create<EntryDraft>((set) => ({
       categoryCode: null,
       note: '',
       date: todayLocal(),
+      manualRate: null,
     }),
   set: (patch) => set(patch),
 }));
@@ -68,3 +72,11 @@ export const useEditingEntry = create<{ entry: Entry | null; open: (entry: Entry
   entry: null,
   open: (entry) => set({ entry }),
 }));
+
+/** The draft's own rate when it applies to a ledger settled in `settleCurrency`. */
+export function draftManualRate(
+  manualRate: { rate: string; settleCurrency: string } | null,
+  settleCurrency: string,
+): string | null {
+  return manualRate?.settleCurrency === settleCurrency ? manualRate.rate : null;
+}

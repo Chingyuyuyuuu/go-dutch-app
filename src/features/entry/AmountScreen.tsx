@@ -5,8 +5,16 @@ import { Pressable, View } from 'react-native';
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { useI18n } from '@/i18n';
 import { currencyName, getCurrency } from '@/lib/currency';
-import { personalLedgersFor, routePersonalEntry } from '@/lib/ledgers';
-import { fitInputToDecimals, formatInput, inputToMinor, pressKey } from '@/lib/money';
+import { previewConversion } from '@/lib/fx';
+import { activePersonalLedgers, lastPersonalLedgerId, routePersonalEntry } from '@/lib/ledgers';
+import {
+  fitInputToDecimals,
+  formatInput,
+  inputDecimals,
+  inputToMinor,
+  isoDecimals,
+  pressKey,
+} from '@/lib/money';
 import { PillButton } from '@/ui/Buttons';
 import { Icon, type IconName } from '@/ui/Icon';
 import { Keypad } from '@/ui/Keypad';
@@ -17,7 +25,8 @@ import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 
 import { CurrencyPicker } from './CurrencyPicker';
-import { useEntryDraft } from './draft';
+import { draftManualRate, useEntryDraft } from './draft';
+import { ConversionLine, FxInfoSheet, LedgerRateSheet } from './fx';
 
 type EntryKind = 'expense' | 'income' | 'split';
 
@@ -30,45 +39,53 @@ export function AmountScreen() {
   const { ledgers, profile } = useAppData();
   const draft = useEntryDraft();
   const { type: linkType } = useLocalSearchParams<{ type?: string }>();
-  // Opened from a widget (godutch://add?type=income): a fresh entry with that type highlighted.
-  const starredCurrency = profile.starredCurrencies[0] ?? 'AUD';
-  const lastUsed = profile.lastUsedLedger[starredCurrency] ?? null;
+  // Opened from a widget (godutch://add?type=income): a fresh entry with that type highlighted,
+  // in the last used ledger's usual currency.
+  const lastUsedId = lastPersonalLedgerId(profile, ledgers);
+  const lastUsed = ledgers.find((l) => l.id === lastUsedId);
+  const widgetCurrency =
+    lastUsed?.entryCurrency ?? lastUsed?.currency ?? profile.starredCurrencies[0] ?? 'TWD';
   useEffect(() => {
     if (linkType !== 'expense' && linkType !== 'income' && linkType !== 'split') return;
     useEntryDraft.getState().start({
-      currency: starredCurrency,
-      fixedLedgerId: lastUsed,
+      currency: widgetCurrency,
+      fixedLedgerId: lastUsedId,
       sourceSharedLedgerId: null,
       presetType: linkType,
     });
     router.setParams({ type: undefined });
-  }, [linkType, starredCurrency, lastUsed]);
-  const [overlay, setOverlay] = useState<'currency' | 'noLedger' | 'noShared' | null>(null);
+  }, [linkType, widgetCurrency, lastUsedId]);
+  const [overlay, setOverlay] = useState<'currency' | 'noLedger' | 'noShared' | 'fxInfo' | 'addRate' | null>(
+    null,
+  );
 
-  const { symbol, minorUnits } = getCurrency(draft.currency);
-  const minor = inputToMinor(draft.input, minorUnits);
-  const personal = personalLedgersFor(draft.currency, ledgers);
+  const { symbol } = getCurrency(draft.currency);
+  const typed = inputDecimals(draft.currency);
+  const minor = inputToMinor(draft.input, isoDecimals(draft.currency));
   const fixed = ledgers.find((l) => l.id === draft.fixedLedgerId);
   const shared = ledgers.find((l) => l.id === draft.sourceSharedLedgerId);
+  // The ledger the conversion is previewed with: the tab it started from, else the last used
+  // personal ledger. Saving converts again with the ledger the entry ends up in (spec §5.1).
+  const previewLedger = fixed ?? shared ?? lastUsed ?? activePersonalLedgers(ledgers)[0];
+  const manualRate = previewLedger ? draftManualRate(draft.manualRate, previewLedger.currency) : null;
+  const conversion = previewLedger
+    ? previewConversion(minor, draft.currency, previewLedger, manualRate)
+    : ({ kind: 'same' } as const);
 
-  const hint =
-    personal.length === 0
-      ? t('entry.noLedgerHint', { cur: draft.currency })
-      : fixed && fixed.currency === draft.currency
-        ? t('entry.fromTab', { name: fixed.name })
-        : shared
-          ? t('entry.fromShared', { name: shared.name })
-          : t('entry.pickType');
+  const hint = fixed
+    ? t('entry.fromTab', { name: fixed.name })
+    : shared
+      ? t('entry.fromShared', { name: shared.name })
+      : t('entry.pickType');
 
   const chooseType = (kind: EntryKind) => {
     if (!minor) return toast(t('entry.enterAmountFirst'));
     if (kind === 'split') return chooseSplitLedger();
     draft.set({ type: kind });
     const route = routePersonalEntry({
-      currency: draft.currency,
       ledgers,
       fixedLedgerId: draft.fixedLedgerId,
-      lastUsedLedgerId: profile.lastUsedLedger[draft.currency],
+      lastLedgerId: lastUsedId,
     });
     if (route.kind === 'none') return setOverlay('noLedger');
     if (route.kind === 'auto') {
@@ -79,15 +96,13 @@ export function AmountScreen() {
     router.push({ pathname: '/add/category', params: { choose: '1' } });
   };
 
-  // Split: the tab's shared ledger, else the only one in this currency, else let the split screen ask.
+  // Split: the tab's shared ledger, else the only one, else the split screen asks (any currency).
   const chooseSplitLedger = () => {
-    const shared = ledgers.filter(
-      (l) => l.kind === 'shared' && l.status === 'active' && l.currency === draft.currency,
-    );
+    const shared = ledgers.filter((l) => l.kind === 'shared' && l.status === 'active');
     if (shared.length === 0) return setOverlay('noShared');
     const fromTab = shared.find((l) => l.id === draft.sourceSharedLedgerId);
     draft.set({ sharedLedgerId: (fromTab ?? shared[0]).id });
-    router.push('/add/split');
+    router.push({ pathname: '/add/split', params: !fromTab && shared.length > 1 ? { choose: '1' } : {} });
   };
 
   const types: { kind: EntryKind; label: string; icon: IconName }[] = [
@@ -156,6 +171,13 @@ export function AmountScreen() {
           </Txt>
           <View style={{ width: 3, height: 58, borderRadius: 2, backgroundColor: colors.accent }} />
         </View>
+        {minor > 0 && (
+          <ConversionLine
+            conversion={conversion}
+            onInfo={() => setOverlay('fxInfo')}
+            onAddRate={() => setOverlay('addRate')}
+          />
+        )}
         <Txt size={13} color={colors.neutral[700]}>
           {hint}
         </Txt>
@@ -200,9 +222,9 @@ export function AmountScreen() {
       </View>
       <View style={{ paddingHorizontal: 13, paddingTop: 4, paddingBottom: 6 }}>
         <Keypad
-          decimals={minorUnits}
+          decimals={typed}
           deleteLabel={t('entry.keypadDelete')}
-          onKey={(key) => draft.set({ input: pressKey(draft.input, key, minorUnits) })}
+          onKey={(key) => draft.set({ input: pressKey(draft.input, key, typed) })}
         />
       </View>
 
@@ -215,10 +237,44 @@ export function AmountScreen() {
           onSelect={(code) => {
             draft.set({
               currency: code,
-              input: fitInputToDecimals(draft.input, getCurrency(code).minorUnits),
+              input: fitInputToDecimals(draft.input, inputDecimals(code)),
+              manualRate: code === draft.currency ? draft.manualRate : null,
             });
             setOverlay(null);
           }}
+        />
+      )}
+      {overlay === 'fxInfo' && previewLedger && conversion.kind === 'converted' && (
+        <FxInfoSheet
+          amountMinor={minor}
+          currency={conversion.currency}
+          settleCurrency={conversion.settleCurrency}
+          rate={conversion.rate}
+          source={conversion.source}
+          ledgerName={previewLedger.name}
+          hasLedgerRate={!!previewLedger.rates?.[draft.currency]}
+          onSetRate={(rate) =>
+            draft.set({ manualRate: rate ? { rate, settleCurrency: previewLedger.currency } : null })
+          }
+          onOpenLedgerRates={() => {
+            setOverlay(null);
+            router.push({ pathname: '/ledger/rates/[id]', params: { id: previewLedger.id } });
+          }}
+          onClose={() => setOverlay(null)}
+        />
+      )}
+      {overlay === 'addRate' && previewLedger && (
+        <LedgerRateSheet
+          ledgerName={previewLedger.name}
+          currency={draft.currency}
+          settleCurrency={previewLedger.currency}
+          onSave={(rate) => {
+            repo.updateLedger(previewLedger.id, {
+              rates: { ...previewLedger.rates, [draft.currency]: rate },
+            });
+            setOverlay(null);
+          }}
+          onClose={() => setOverlay(null)}
         />
       )}
       {(overlay === 'noLedger' || overlay === 'noShared') && (
@@ -236,9 +292,7 @@ export function AmountScreen() {
             <Icon name="book-plus" size={24} color={colors.accentRamp[800]} />
           </View>
           <Txt font="heading" size={24} lineHeight={28}>
-            {overlay === 'noShared'
-              ? t('split.noShared', { cur: draft.currency })
-              : t('route.noneTitle', { cur: draft.currency })}
+            {overlay === 'noShared' ? t('split.noShared') : t('route.noneTitle')}
           </Txt>
           <Txt size={14} color={colors.neutral[800]}>
             {overlay === 'noShared' ? t('split.noSharedBody') : t('route.noneBody')}
@@ -254,17 +308,16 @@ export function AmountScreen() {
           >
             <PillButton label={t('route.notNow')} variant="outline" onPress={() => setOverlay(null)} />
             <PillButton
-              label={
-                overlay === 'noShared' ? t('split.createShared') : t('route.create', { cur: draft.currency })
-              }
+              label={overlay === 'noShared' ? t('split.createShared') : t('route.create')}
               onPress={() => {
                 const shared = overlay === 'noShared';
                 setOverlay(null);
                 router.push({
                   pathname: '/ledger/new',
+                  // The new ledger is settled in TWD by default; this entry's currency becomes its usual one.
                   params: shared
-                    ? { currency: draft.currency, kind: 'shared', then: 'split' }
-                    : { currency: draft.currency, then: 'category' },
+                    ? { entryCurrency: draft.currency, kind: 'shared', then: 'split' }
+                    : { entryCurrency: draft.currency, then: 'category' },
                 });
               }}
             />

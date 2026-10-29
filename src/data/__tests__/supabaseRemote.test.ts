@@ -454,6 +454,49 @@ describe('SupabaseRemote.pull', () => {
     return json(rows[table as keyof typeof rows]);
   };
 
+  it('reads rate changes, share-link joins and join requests (Phase 6)', async () => {
+    const phase6 = (call: Call) => {
+      const table = call.url.pathname.replace('/rest/v1/', '');
+      if (table === 'ledgers') {
+        const [, trip] = rows.ledgers;
+        return json([
+          {
+            ...trip,
+            rates: { KRW: '0.0235' },
+            rate_changes: { KRW: { by: 'ben', rate: '0.0235', at: '2026-10-27T00:00:00+00:00' } },
+            ledger_members: [
+              { ...trip.ledger_members[0], share_joined_at: null },
+              { ...trip.ledger_members[1], share_joined_at: '2026-10-21T00:00:00+00:00' },
+            ],
+          },
+        ]);
+      }
+      if (table === 'ledger_join_requests') {
+        expect(call.url.searchParams.get('status')).toBe('eq.pending');
+        return json([
+          {
+            id: 'jr-1',
+            ledger_id: TRIP,
+            user_id: 'kai',
+            requester_name: 'Kai',
+            member_id: null,
+            created_at: '2026-10-27T01:00:00+00:00',
+          },
+        ]);
+      }
+      return respond(call);
+    };
+    const { remote } = setup(phase6);
+    const [trip] = (await remote.pull(null, [])).ledgers;
+    expect(trip.rateChanges).toEqual({
+      KRW: { byUid: 'ben', rate: '0.0235', at: Date.parse('2026-10-27T00:00:00Z') },
+    });
+    expect(trip.members.map((m) => m.shareJoinedAt)).toEqual([null, Date.parse('2026-10-21T00:00:00Z')]);
+    expect(trip.joinRequests).toEqual([
+      { id: 'jr-1', uid: 'kai', name: 'Kai', memberId: null, createdAt: Date.parse('2026-10-27T01:00:00Z') },
+    ]);
+  });
+
   it('reads every table and maps rows to the app model', async () => {
     const { remote, calls } = setup(respond);
     const result = await remote.pull('2026-10-26T00:00:00Z', [LEDGER]);
@@ -533,9 +576,7 @@ describe('SupabaseRemote.pull', () => {
     expect(result.cursor).toBe('2026-10-26T09:00:00.123456+00:00');
 
     const ledgerCall = calls.find((c) => c.url.pathname.endsWith('/ledgers'));
-    expect(ledgerCall?.url.searchParams.get('select')).toContain(
-      'ledger_members(id,user_id,placeholder_id,display_name,left_at)',
-    );
+    expect(ledgerCall?.url.searchParams.get('select')).toBe('*,ledger_members(*)');
     const entryCalls = calls.filter((c) => c.url.pathname.endsWith('/entries'));
     // Changes since the cursor (two-minute overlap) in known ledgers…
     expect(entryCalls[0].url.searchParams.get('updated_at')).toBe('gte.2026-10-25T23:58:00.000Z');
@@ -715,5 +756,49 @@ describe('SupabaseRemote Phase 6', () => {
     });
     expect(calls[1].body).toMatchObject({ share_handling: 'each', share_target_ledger_id: LEDGER });
     expect(calls[2].body).toEqual({ id: UID, last_ledger_id: LEDGER });
+  });
+});
+
+describe('SupabaseRemote.midRate', () => {
+  it('reads the latest mid-market rate from mid_rate', async () => {
+    const { remote, calls } = setup(() => json([{ mid: 0.2071, as_of: '2026-10-28' }]));
+    await expect(remote.midRate('JPY', 'TWD')).resolves.toEqual({ mid: '0.2071', asOf: '2026-10-28' });
+    expect(calls[0].url.pathname).toBe('/rest/v1/rpc/mid_rate');
+    expect(calls[0].body).toEqual({ p_from: 'JPY', p_to: 'TWD' });
+  });
+
+  it('is null when the server has no rate', async () => {
+    const { remote } = setup(() => json([]));
+    await expect(remote.midRate('XAU', 'TWD')).resolves.toBeNull();
+  });
+
+  it('throws when the function is missing (server without the migration)', async () => {
+    const { remote } = setup(() => json({ code: 'PGRST202', message: 'not found' }, 404));
+    await expect(remote.midRate('JPY', 'TWD')).rejects.toBeTruthy();
+  });
+});
+
+describe('SupabaseRemote share links and join requests', () => {
+  it('calls the share link functions', async () => {
+    const { remote, calls } = setup((call) => {
+      if (call.url.pathname.endsWith('/ledger_share_links')) return json({ token: 'abc', revoked_at: null });
+      if (call.url.pathname.endsWith('/create_share_link')) return json('f'.repeat(32));
+      return json(null);
+    });
+    await expect(remote.getShareLink(TRIP)).resolves.toEqual({ token: 'abc', live: true });
+    await expect(remote.createShareLink(TRIP, true)).resolves.toBe('f'.repeat(32));
+    await remote.revokeShareLink(TRIP);
+    expect(calls[1].body).toEqual({ p_ledger_id: TRIP, p_regenerate: true });
+    expect(calls[2].url.pathname).toBe('/rest/v1/rpc/revoke_share_link');
+  });
+
+  it('sends join requests and answers', async () => {
+    const { remote, calls } = setup((call) =>
+      json(call.url.pathname.endsWith('/request_join') ? 'sent' : 'approved'),
+    );
+    await expect(remote.requestJoin('tok', null)).resolves.toBe('sent');
+    await expect(remote.answerJoinRequest('jr-1', true)).resolves.toBe('approved');
+    expect(calls[0].body).toEqual({ p_token: 'tok', p_member_id: null });
+    expect(calls[1].body).toEqual({ p_request_id: 'jr-1', p_approve: true });
   });
 });

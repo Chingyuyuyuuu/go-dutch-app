@@ -96,6 +96,22 @@ export function isSettled(net: MinorUnits, currency: string): boolean {
   return roundToDisplayUnit(Math.abs(net), currency, 'floor') === 0;
 }
 
+/**
+ * Suggested transfers as shown and settled: fewest transfers (simplifyDebts),
+ * anything under one display unit left out as settled, the rest rounded with
+ * roundSettlement (up, or down when the ledger owner pays). Same as before for
+ * currencies shown with all their decimals.
+ */
+export function settleUpTransfers(
+  net: Record<string, MinorUnits>,
+  ownerMemberId: string | null,
+  currency: string,
+): Transfer[] {
+  return simplifyDebts(net)
+    .filter((tr) => !isSettled(tr.amount, currency))
+    .map((tr) => ({ ...tr, amount: roundSettlement(tr.amount, tr.from === ownerMemberId, currency) }));
+}
+
 /** One member's share of an entry in the currency it was paid in, or 0. */
 export function shareOf(entry: Pick<BalanceEntry, 'shares'>, memberId: string): MinorUnits {
   return entry.shares?.[memberId] ?? 0;

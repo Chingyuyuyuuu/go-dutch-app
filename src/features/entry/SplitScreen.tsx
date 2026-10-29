@@ -1,16 +1,17 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { draftShares, newSplitDraft, SplitForm, type SplitDraft } from '@/features/shared/SplitForm';
 import { useI18n } from '@/i18n';
-import { categoryGrid, type CategoryCode } from '@/lib/categories';
-import { getCurrency } from '@/lib/currency';
+import type { CategoryCode } from '@/lib/categories';
 import { dayLabel, todayLocal } from '@/lib/date';
-import { formatMoney, inputToMinor } from '@/lib/money';
+import { ownerMemberId } from '@/lib/domain';
+import { allocateSettle, previewConversion } from '@/lib/fx';
+import { formatMoney, inputToMinor, isoDecimals } from '@/lib/money';
+import { memberName } from '@/features/shared/members';
 import { PillButton, Tag } from '@/ui/Buttons';
-import { CategoryCircle } from '@/ui/CategoryCircle';
 import { Icon } from '@/ui/Icon';
 import { Sheet } from '@/ui/Overlay';
 import { Screen, ScreenHeader } from '@/ui/Screen';
@@ -20,8 +21,11 @@ import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 
 import { CalendarPicker } from './CalendarPicker';
+import { useCategoryGrid } from './categories';
+import { CategoryStrip } from './CategoryStrip';
 import { DateChip } from './CategoryScreen';
-import { useEntryDraft, useHomeTab } from './draft';
+import { draftManualRate, useEntryDraft, useHomeTab } from './draft';
+import { ConversionLine, FxInfoSheet, LedgerRateSheet } from './fx';
 
 /** Screen 08: split with friends in a shared ledger. */
 export function SplitScreen() {
@@ -31,35 +35,49 @@ export function SplitScreen() {
   const repo = useRepo();
   const { ledgers } = useAppData();
   const draft = useEntryDraft();
-  const candidates = ledgers.filter(
-    (l) => l.kind === 'shared' && l.status === 'active' && l.currency === draft.currency,
-  );
+  const params = useLocalSearchParams<{ choose?: string }>();
+  // Any currency can be split in any shared ledger; it is converted to the ledger's currency.
+  const candidates = ledgers.filter((l) => l.kind === 'shared' && l.status === 'active');
   const ledger = candidates.find((l) => l.id === draft.sharedLedgerId);
   const [split, setSplit] = useState<SplitDraft | null>(ledger ? newSplitDraft(ledger, repo.uid) : null);
   const [categoryCode, setCategoryCode] = useState<CategoryCode | null>(null);
-  const [chooser, setChooser] = useState(false);
+  const [overlay, setOverlay] = useState<'chooser' | 'fxInfo' | 'addRate' | null>(
+    params.choose === '1' ? 'chooser' : null,
+  );
+  const [submitAfterRate, setSubmitAfterRate] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const today = todayLocal();
+  const income = split?.kind === 'income';
+  const categories = useCategoryGrid(ledger, income ? 'income' : 'expense');
 
   if (!ledger || !split) return <Redirect href="/" />;
 
-  const { minorUnits } = getCurrency(ledger.currency);
-  const total = inputToMinor(draft.input, minorUnits);
-  const income = split.kind === 'income';
-  // TODO(phase 6): use the ledger's category set once ledgers store one.
-  const codes = categoryGrid('au_life', income ? 'income' : 'expense').grid;
+  const decimals = isoDecimals(draft.currency);
+  const total = inputToMinor(draft.input, decimals);
+  const manualRate = draftManualRate(draft.manualRate, ledger.currency);
+  const conversion = previewConversion(total, draft.currency, ledger, manualRate);
+  const allocation = draftShares(split, total, decimals);
 
   const chooseLedger = (id: string) => {
     const next = candidates.find((l) => l.id === id);
     if (!next) return;
     draft.set({ sharedLedgerId: id });
     setSplit({ ...newSplitDraft(next, repo.uid), kind: split.kind });
-    setChooser(false);
+    setOverlay(null);
   };
 
-  const submit = () => {
-    const allocation = draftShares(split, total, minorUnits);
-    if (!allocation.ok) return toast(t('split.overTotal', { amount: formatMoney(ledger.currency, total) }));
+  const submit = (rates = ledger.rates) => {
+    if (!allocation.ok) return toast(t('split.overTotal', { amount: formatMoney(draft.currency, total) }));
+    const converted = previewConversion(
+      total,
+      draft.currency,
+      { currency: ledger.currency, rates },
+      manualRate,
+    );
+    if (converted.kind === 'missing') {
+      setSubmitAfterRate(true);
+      return setOverlay('addRate');
+    }
     repo.addEntry(ledger.id, {
       type: split.kind,
       amountMinor: total,
@@ -69,6 +87,11 @@ export function SplitScreen() {
       isSplit: true,
       payerMemberId: split.payerId,
       shares: allocation.shares,
+      ...(converted.kind === 'converted' && {
+        currency: converted.currency,
+        fxRate: converted.rate,
+        fxSource: converted.source,
+      }),
     });
     const others = ledger.members.filter((m) => m.uid !== repo.uid && m.leftAt === null).map((m) => m.name);
     useHomeTab.getState().select(ledger.id);
@@ -89,9 +112,16 @@ export function SplitScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Txt font="heading" size={42} tabular numberOfLines={1} adjustsFontSizeToFit style={{ flex: 1 }}>
-            {formatMoney(ledger.currency, total)}
-          </Txt>
+          <View style={{ flex: 1 }}>
+            <Txt font="heading" size={42} tabular numberOfLines={1} adjustsFontSizeToFit>
+              {formatMoney(draft.currency, total)}
+            </Txt>
+            <ConversionLine
+              conversion={conversion}
+              onInfo={() => setOverlay('fxInfo')}
+              onAddRate={() => setOverlay('addRate')}
+            />
+          </View>
           <View
             style={{ flexDirection: 'row', padding: 3, borderRadius: 999, backgroundColor: colors.surface }}
           >
@@ -126,7 +156,7 @@ export function SplitScreen() {
         <Pressable
           accessibilityRole="button"
           disabled={candidates.length < 2}
-          onPress={() => setChooser(true)}
+          onPress={() => setOverlay('chooser')}
           style={{
             minHeight: 56,
             paddingHorizontal: 16,
@@ -154,38 +184,28 @@ export function SplitScreen() {
           )}
         </Pressable>
 
-        <SplitForm ledger={ledger} myUid={repo.uid} total={total} draft={split} onChange={setSplit} />
+        <SplitForm
+          ledger={ledger}
+          myUid={repo.uid}
+          currency={draft.currency}
+          total={total}
+          settleTotal={conversion.kind === 'converted' ? conversion.settleMinor : null}
+          draft={split}
+          onChange={setSplit}
+        />
 
         <View style={{ gap: 8 }}>
           <Txt font="semibold" size={13} color={colors.neutral[700]}>
             {t('split.categoryOptional')}
           </Txt>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-            {codes.map((code) => {
-              const on = code === categoryCode;
-              return (
-                <Pressable
-                  key={code}
-                  accessibilityRole="button"
-                  aria-selected={on}
-                  accessibilityLabel={t(`category.${code}`)}
-                  onPress={() => setCategoryCode(on ? null : code)}
-                  style={{ width: 58, alignItems: 'center', gap: 5 }}
-                >
-                  <CategoryCircle
-                    code={code}
-                    size={50}
-                    iconSize={21}
-                    background={on ? colors.accent : colors.surface}
-                    color={on ? colors.bg : colors.accentRamp[800]}
-                  />
-                  <Txt size={12} align="center" numberOfLines={2}>
-                    {t(`category.${code}`)}
-                  </Txt>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <CategoryStrip
+            key={split.kind}
+            grid={categories.grid}
+            more={categories.more}
+            selected={categoryCode}
+            income={income}
+            onSelect={(code) => setCategoryCode(code === categoryCode ? null : code)}
+          />
         </View>
 
         <View
@@ -236,11 +256,66 @@ export function SplitScreen() {
         )}
       </ScrollView>
       <View style={{ paddingTop: 10, paddingHorizontal: 16, paddingBottom: 6 }}>
-        <PillButton label={t('split.add')} height={60} onPress={submit} />
+        <PillButton label={t('split.add')} height={60} onPress={() => submit()} />
       </View>
 
-      {chooser && (
-        <Sheet onClose={() => setChooser(false)} style={{ paddingHorizontal: 14, gap: 6 }}>
+      {overlay === 'fxInfo' && conversion.kind === 'converted' && (
+        <FxInfoSheet
+          amountMinor={total}
+          currency={conversion.currency}
+          settleCurrency={conversion.settleCurrency}
+          rate={conversion.rate}
+          source={conversion.source}
+          ledgerName={ledger.name}
+          hasLedgerRate={!!ledger.rates?.[draft.currency]}
+          shares={
+            allocation.ok
+              ? (() => {
+                  const settled = allocateSettle(conversion.settleMinor, allocation.shares);
+                  const ownerId = ownerMemberId(ledger);
+                  return split.memberIds.map((id) => ({
+                    id,
+                    name: memberName(
+                      ledger.members.find((m) => m.id === id),
+                      repo.uid,
+                      t,
+                    ),
+                    share: allocation.shares[id] ?? 0,
+                    settle: settled[id] ?? 0,
+                    owner: id === ownerId,
+                  }));
+                })()
+              : undefined
+          }
+          onSetRate={(rate) =>
+            draft.set({ manualRate: rate ? { rate, settleCurrency: ledger.currency } : null })
+          }
+          onOpenLedgerRates={() => {
+            setOverlay(null);
+            router.push({ pathname: '/ledger/rates/[id]', params: { id: ledger.id } });
+          }}
+          onClose={() => setOverlay(null)}
+        />
+      )}
+      {overlay === 'addRate' && (
+        <LedgerRateSheet
+          ledgerName={ledger.name}
+          currency={draft.currency}
+          settleCurrency={ledger.currency}
+          onSave={(rate) => {
+            const rates = { ...ledger.rates, [draft.currency]: rate };
+            repo.updateLedger(ledger.id, { rates });
+            setOverlay(null);
+            if (submitAfterRate) submit(rates);
+          }}
+          onClose={() => {
+            setSubmitAfterRate(false);
+            setOverlay(null);
+          }}
+        />
+      )}
+      {overlay === 'chooser' && (
+        <Sheet onClose={() => setOverlay(null)} style={{ paddingHorizontal: 14, gap: 6 }}>
           <Txt font="heading" size={24} style={{ paddingTop: 12, paddingHorizontal: 8, paddingBottom: 8 }}>
             {t('split.chooseLedger')}
           </Txt>

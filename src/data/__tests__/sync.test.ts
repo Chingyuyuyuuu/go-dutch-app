@@ -128,6 +128,29 @@ class FakeRemote implements RemoteApi {
     this.recurringRuns += 1;
   }
 
+  async getShareLink() {
+    return null;
+  }
+
+  async createShareLink() {
+    return 'token';
+  }
+
+  async revokeShareLink() {}
+
+  async requestJoin() {
+    return 'sent' as const;
+  }
+
+  async answerJoinRequest() {
+    return 'approved' as const;
+  }
+
+  async midRate(from: string, to: string) {
+    if (!this.online) throw new Error('offline');
+    return from === 'JPY' && to === 'TWD' ? { mid: '0.2071', asOf: '2026-10-28' } : null;
+  }
+
   subscribe(onChange: () => void) {
     this.listeners.add(onChange);
     return () => this.listeners.delete(onChange);

@@ -62,7 +62,12 @@ export function seedDemo(today: LocalDate, names: Messages['demo'], now = Date.n
     ledger('living', names.living, 'AUD', now - 5),
     ledger('japan', names.japan, 'JPY', now - 4, japanMembers),
     ledger('travel', names.travel, 'AUD', now - 3),
-    ledger('flat', names.flat, 'AUD', now - 2, flatMembers),
+    {
+      ...ledger('flat', names.flat, 'AUD', now - 2, flatMembers),
+      // After "last seen" below, so the "Amy changed the rate" notice (Phase 6) shows once.
+      rates: { NZD: '0.91' },
+      rateChanges: { NZD: { byUid: AMY, rate: '0.91', at: now + 1 } },
+    },
     ledger('yen', names.yenWallet, 'JPY', now - 1),
   ];
 

@@ -1,18 +1,21 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { ALL_TIME, useAppData, useLedgerEntries, useRepo } from '@/data/AppDataProvider';
 import { useEditingEntry } from '@/features/entry/draft';
 import { Avatar, memberColor, memberName } from '@/features/shared/members';
 import { BUBBLE_BORDER, BubbleFrost, useBubbleLook } from '@/features/appearance/bubble';
 import { useI18n } from '@/i18n';
-import { memberNets, shareOf, simplifyDebts, type Transfer } from '@/lib/balances';
+import { memberNets, settleUpTransfers, shareOf, type Transfer } from '@/lib/balances';
+import { currencyName } from '@/lib/currency';
 import { dayLabel } from '@/lib/date';
-import { memberForUid, type Entry, type Ledger } from '@/lib/domain';
+import { entryCurrency, memberForUid, ownerMemberId, type Entry, type Ledger } from '@/lib/domain';
 import { groupByDay } from '@/lib/ledgers';
 import { formatMoney } from '@/lib/money';
-import { PillButton } from '@/ui/Buttons';
+import { joinRequestsToAnswer, ledgerNotices } from '@/lib/share';
+import { IconButton, PillButton } from '@/ui/Buttons';
+import { Icon } from '@/ui/Icon';
 import { useColors } from '@/ui/theme/ThemeProvider';
 import { useScreenOverlay } from '@/ui/Screen';
 import { useToast } from '@/ui/Toast';
@@ -21,6 +24,7 @@ import { Txt } from '@/ui/Txt';
 import { EndLedgerDialog } from './EndLedgerDialog';
 import { EntryBubble } from './EntryBubble';
 import { SettleSheet } from './SettleSheet';
+import { ShareSheet } from './ShareSheet';
 
 /**
  * Screen 02: a shared ledger. Balance card with who owes whom (fewest
@@ -39,9 +43,13 @@ export function SharedLedgerBody({ ledger, today }: { ledger: Ledger; today: str
   const entries = useLedgerEntries(ledger.id, ALL_TIME);
   const groups = useMemo(() => groupByDay(entries), [entries]);
   const me = memberForUid(ledger, repo.uid);
-  const transfers = useMemo(() => simplifyDebts(memberNets(entries)), [entries]);
-  const ended = ledger.status === 'ended';
+  const ownerId = ownerMemberId(ledger);
   const cur = ledger.currency;
+  const transfers = useMemo(
+    () => settleUpTransfers(memberNets(entries), ownerId, cur),
+    [entries, ownerId, cur],
+  );
+  const ended = ledger.status === 'ended';
 
   useEffect(() => {
     repo.markSeen(ledger.id);
@@ -59,6 +67,17 @@ export function SharedLedgerBody({ ledger, today }: { ledger: Ledger; today: str
       repo.uid,
       t,
     );
+  // Things others did since I last opened this ledger (spec §6A.2, §6B.3), and requests I should answer.
+  const notices = ledgerNotices(ledger, repo.uid, seenAt).map((n) =>
+    n.kind === 'rate'
+      ? t('notice.rateChanged', {
+          name: nameOfUid(n.byUid),
+          cur: currencyName(n.currency, lang),
+          rate: n.rate,
+        })
+      : t('notice.joined', { name: name(n.memberId) }),
+  );
+  const requests = joinRequestsToAnswer(ledger, repo.uid);
   const mine = transfers.filter((tr) => tr.from === me?.id || tr.to === me?.id);
   const others = transfers.filter((tr) => !mine.includes(tr));
 
@@ -76,7 +95,10 @@ export function SharedLedgerBody({ ledger, today }: { ledger: Ledger; today: str
       myShare > 0
         ? t(e.type === 'income' ? 'home.receivedYourShare' : 'home.paidYourShare', {
             name: payer,
-            amount: formatMoney(cur, myShare),
+            // Shown shares: the owner's rounded down, everyone else's up (spec §6A.5).
+            amount: formatMoney(entryCurrency(e, ledger), myShare, {
+              round: me?.id === ownerId ? 'floor' : 'ceil',
+            }),
           })
         : t('home.paidNotYou', { name: payer });
     return { title: undefined, subtitle };
@@ -124,6 +146,53 @@ export function SharedLedgerBody({ ledger, today }: { ledger: Ledger; today: str
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 16 }}>
+        {(notices.length > 0 || requests.length > 0) && (
+          <View style={{ paddingTop: 12, paddingHorizontal: 14, gap: 6 }}>
+            {notices.map((text) => (
+              <View
+                key={text}
+                style={{
+                  minHeight: 44,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 18,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: colors.accent2Ramp[100],
+                }}
+              >
+                <Icon name="info" size={16} color={colors.accent2Ramp[800]} />
+                <Txt size={13} color={colors.accent2Ramp[900]} style={{ flex: 1 }}>
+                  {text}
+                </Txt>
+              </View>
+            ))}
+            {requests.length > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/ledger/[id]', params: { id: ledger.id } })}
+                style={{
+                  minHeight: 44,
+                  paddingHorizontal: 14,
+                  borderRadius: 18,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: colors.accentRamp[100],
+                }}
+              >
+                <Icon name="user-plus" size={16} color={colors.accentRamp[800]} />
+                <Txt size={13} color={colors.accentRamp[900]} style={{ flex: 1 }}>
+                  {t('notice.requests', { count: requests.length })}
+                </Txt>
+                <Txt font="bold" size={13} color={colors.accentRamp[800]}>
+                  {t('notice.see')}
+                </Txt>
+              </Pressable>
+            )}
+          </View>
+        )}
         <View style={{ paddingTop: 14, paddingHorizontal: 14, paddingBottom: 4 }}>
           <View
             style={{
@@ -156,6 +225,13 @@ export function SharedLedgerBody({ ledger, today }: { ledger: Ledger; today: str
                     </View>
                   ))}
               </View>
+              <IconButton
+                icon="share-2"
+                accessibilityLabel={t('share.button')}
+                size={44}
+                iconSize={18}
+                onPress={() => showOverlay(<ShareSheet ledger={ledger} onClose={() => showOverlay(null)} />)}
+              />
             </View>
 
             {mine.map(transferRow)}

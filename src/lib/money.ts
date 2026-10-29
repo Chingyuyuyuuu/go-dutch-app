@@ -23,12 +23,33 @@ export function formatMinorNumber(minor: MinorUnits, decimals: number): string {
 export type FormatMoneyOptions = {
   /** Prefix shown before the symbol, e.g. "+" for income or MINUS_SIGN for negative balances. */
   sign?: string;
+  /** How to round to what is shown (whole dollars for TWD). Default half-up. */
+  round?: RoundMode;
 };
 
-/** "$1,234.50", "¥2,500", "NT$300.00". The symbol follows the currency, not the UI language. */
+/**
+ * The number shown for an amount, without symbol or sign: "1,234.50" for AUD,
+ * "701" for NT$700.60 (TWD shows whole dollars; the stored amount keeps its cents).
+ */
+export function formatAmountNumber(
+  currency: string,
+  minor: MinorUnits,
+  round: RoundMode = 'half-up',
+): string {
+  const unit = displayUnit(currency);
+  return formatMinorNumber(roundToDisplayUnit(minor, currency, round) / unit, displayDecimals(currency));
+}
+
+/** "$1,234.50", "¥2,500", "NT$300". The symbol follows the currency, not the UI language. */
 export function formatMoney(currency: string, minor: MinorUnits, options: FormatMoneyOptions = {}): string {
+  const { symbol } = getCurrency(currency);
+  return `${options.sign ?? ''}${symbol}${formatAmountNumber(currency, minor, options.round)}`;
+}
+
+/** All ISO decimals, for showing how a conversion was worked out: "NT$700.60". */
+export function formatMoneyExact(currency: string, minor: MinorUnits): string {
   const { symbol, minorUnits } = getCurrency(currency);
-  return `${options.sign ?? ''}${symbol}${formatMinorNumber(minor, minorUnits)}`;
+  return `${symbol}${formatMinorNumber(minor, minorUnits)}`;
 }
 
 /** Balance with a minus sign when negative ("−$12.00"). */
@@ -37,12 +58,23 @@ export function formatSignedMoney(currency: string, minor: MinorUnits): string {
 }
 
 // ---------------------------------------------------------------------------
-// Keypad input. The raw input is a string like "1234.5" so we never go through
+// Keypad input. Typing follows the decimals people use (inputDecimals: none for
+// TWD), while inputToMinor / minorToInput take the ISO minor units of the currency. The raw input is a string like "1234.5" so we never go through
 // floating point. It is converted to minor units with string arithmetic.
 
 export type KeypadKey = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '.' | 'del';
 
 export const MAX_INTEGER_DIGITS = 9;
+
+/** Decimals that can be typed for a currency: 2 for AUD, none for JPY and TWD. */
+export function inputDecimals(currency: string): number {
+  return displayDecimals(currency);
+}
+
+/** ISO minor units of a currency, for inputToMinor and minorToInput (2 for TWD: stored in cents). */
+export function isoDecimals(currency: string): number {
+  return getCurrency(currency).minorUnits;
+}
 
 export function pressKey(input: string, key: KeypadKey, decimals: number): string {
   if (key === 'del') return input.slice(0, -1);
@@ -71,6 +103,15 @@ export function minorToInput(minor: MinorUnits, decimals: number): string {
   const formatted = formatMinorNumber(minor, decimals).replace(/,/g, '');
   if (decimals === 0) return formatted;
   return formatted.replace(/\.?0+$/, '');
+}
+
+/**
+ * A stored amount as keypad input in the currency's typed decimals: NT$700.60 -> "701".
+ * For prefilling a new amount (settle in full, a reconcile gap). Editing an existing
+ * entry keeps its exact amount with minorToInput instead.
+ */
+export function minorToTypedInput(minor: MinorUnits, currency: string): string {
+  return minorToInput(roundToDisplayUnit(minor, currency), isoDecimals(currency));
 }
 
 /** What the big amount label shows while typing: "1,234.5". Empty input shows "0". */

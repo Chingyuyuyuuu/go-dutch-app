@@ -1,14 +1,14 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { useAppData, useRepo } from '@/data/AppDataProvider';
 import { useI18n } from '@/i18n';
-import { categoryGrid, type CategoryCode } from '@/lib/categories';
-import { getCurrency } from '@/lib/currency';
+import type { CategoryCode } from '@/lib/categories';
 import { dayLabel, todayLocal } from '@/lib/date';
-import { personalLedgersFor, routePersonalEntry } from '@/lib/ledgers';
-import { formatMoney, inputToMinor } from '@/lib/money';
+import { previewConversion } from '@/lib/fx';
+import { activePersonalLedgers, lastPersonalLedgerId, routePersonalEntry } from '@/lib/ledgers';
+import { formatMoney, inputToMinor, isoDecimals } from '@/lib/money';
 import { PillButton, Tag } from '@/ui/Buttons';
 import { CategoryCircle } from '@/ui/CategoryCircle';
 import { Icon } from '@/ui/Icon';
@@ -20,7 +20,9 @@ import { useToast } from '@/ui/Toast';
 import { Txt } from '@/ui/Txt';
 
 import { CalendarPicker } from './CalendarPicker';
-import { useEntryDraft, useHomeTab } from './draft';
+import { useCategoryGrid } from './categories';
+import { draftManualRate, useEntryDraft, useHomeTab } from './draft';
+import { ConversionLine, FxInfoSheet, LedgerRateSheet } from './fx';
 
 /** Screen 05 (+ 05b note sheet, 05c backdate, 06 ledger routing sheet). */
 export function CategoryScreen() {
@@ -31,31 +33,37 @@ export function CategoryScreen() {
   const { ledgers, profile } = useAppData();
   const draft = useEntryDraft();
   const params = useLocalSearchParams<{ choose?: string }>();
-  const [overlay, setOverlay] = useState<'route' | 'note' | null>(params.choose === '1' ? 'route' : null);
+  const [overlay, setOverlay] = useState<'route' | 'note' | 'fxInfo' | 'addRate' | null>(
+    params.choose === '1' ? 'route' : null,
+  );
   const [dateOpen, setDateOpen] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  // Saving waits for the ledger rate when the currency is new to the ledger.
+  const [saveAfterRate, setSaveAfterRate] = useState(false);
   const today = todayLocal();
-
+  const isIncome = draft.type === 'income';
   const ledger = ledgers.find((l) => l.id === draft.ledgerId);
+  const categories = useCategoryGrid(ledger, isIncome ? 'income' : 'expense');
   if (!ledger) return <Redirect href="/" />;
 
-  const minor = inputToMinor(draft.input, getCurrency(draft.currency).minorUnits);
+  const minor = inputToMinor(draft.input, isoDecimals(draft.currency));
   const amount = formatMoney(draft.currency, minor);
-  const isIncome = draft.type === 'income';
-  // TODO(phase 6): use the ledger's category set once ledgers store one.
-  const codes = categoryGrid('au_life', isIncome ? 'income' : 'expense').grid;
-  const candidates = personalLedgersFor(draft.currency, ledgers);
+  const conversion = previewConversion(
+    minor,
+    draft.currency,
+    ledger,
+    draftManualRate(draft.manualRate, ledger.currency),
+  );
+  const codes = showMore ? [...categories.grid, ...categories.more] : categories.grid;
+  const candidates = activePersonalLedgers(ledgers);
   const ledgerLabel = `${ledger.name} · ${ledger.currency}`;
   const typeTone = isIncome
     ? { bg: colors.accent2Ramp[200], fg: colors.accent2Ramp[800] }
     : { bg: colors.accentRamp[200], fg: colors.accentRamp[800] };
 
-  const route = routePersonalEntry({
-    currency: draft.currency,
-    ledgers,
-    lastUsedLedgerId: profile.lastUsedLedger[draft.currency],
-  });
+  const lastUsed = lastPersonalLedgerId(profile, ledgers);
+  const route = routePersonalEntry({ ledgers, lastLedgerId: lastUsed });
   const routeIds = route.kind === 'choose' ? route.ledgerIds : candidates.map((l) => l.id);
-  const lastUsed = profile.lastUsedLedger[draft.currency];
 
   const pick = (code: CategoryCode) => {
     draft.set({ categoryCode: code });
@@ -63,20 +71,44 @@ export function CategoryScreen() {
     setOverlay('note');
   };
 
-  const save = () => {
+  const save = (rates = ledger.rates) => {
     if (!draft.categoryCode) return;
+    const converted = previewConversion(
+      minor,
+      draft.currency,
+      { currency: ledger.currency, rates },
+      draftManualRate(draft.manualRate, ledger.currency),
+    );
+    if (converted.kind === 'missing') {
+      setSaveAfterRate(true);
+      return setOverlay('addRate');
+    }
     repo.addEntry(ledger.id, {
       type: draft.type,
       amountMinor: minor,
       categoryCode: draft.categoryCode,
       date: draft.date,
       note: draft.note.trim(),
+      ...(converted.kind === 'converted' && {
+        currency: converted.currency,
+        fxRate: converted.rate,
+        fxSource: converted.source,
+      }),
     });
-    repo.updateProfile({ lastUsedLedger: { ...profile.lastUsedLedger, [draft.currency]: ledger.id } });
+    repo.updateProfile({ lastLedgerId: ledger.id });
     useHomeTab.getState().select(ledger.id);
     toast(t('entry.savedTo', { name: ledger.name }));
     router.dismissAll();
   };
+
+  const conversionLine = (size?: number) => (
+    <ConversionLine
+      conversion={conversion}
+      size={size}
+      onInfo={() => setOverlay('fxInfo')}
+      onAddRate={() => setOverlay('addRate')}
+    />
+  );
 
   return (
     <Screen>
@@ -106,6 +138,7 @@ export function CategoryScreen() {
             </Txt>
           </View>
         </View>
+        {conversionLine()}
         <Pressable
           accessibilityRole="button"
           aria-disabled={candidates.length < 2}
@@ -148,15 +181,16 @@ export function CategoryScreen() {
         </Pressable>
       </View>
 
-      <View
-        style={{
-          flex: 1,
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
           flexDirection: 'row',
           flexWrap: 'wrap',
           alignContent: 'flex-start',
           rowGap: 18,
           paddingHorizontal: 16,
           paddingTop: 8,
+          paddingBottom: 8,
         }}
       >
         {codes.map((code) => (
@@ -179,7 +213,27 @@ export function CategoryScreen() {
             </Txt>
           </Pressable>
         ))}
-      </View>
+        {categories.more.length > 0 && (
+          <Pressable
+            accessibilityRole="button"
+            aria-expanded={showMore}
+            onPress={() => setShowMore((v) => !v)}
+            style={{
+              width: '100%',
+              minHeight: 44,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <Txt font="semibold" size={14} color={colors.accentRamp[700]}>
+              {showMore ? t('entry.fewerCategories') : t('entry.moreCategories')}
+            </Txt>
+            <Icon name={showMore ? 'chevron-up' : 'chevron-down'} size={16} color={colors.accentRamp[700]} />
+          </Pressable>
+        )}
+      </ScrollView>
       <Txt
         size={13}
         color={colors.neutral[700]}
@@ -191,7 +245,7 @@ export function CategoryScreen() {
       {overlay === 'route' && (
         <Sheet onClose={() => setOverlay(null)} style={{ paddingHorizontal: 14, gap: 6 }}>
           <Txt font="heading" size={24} style={{ paddingTop: 12, paddingHorizontal: 8 }}>
-            {t('route.title', { cur: draft.currency })}
+            {t('route.title')}
           </Txt>
           <Txt size={13} color={colors.neutral[700]} style={{ paddingHorizontal: 8, paddingBottom: 8 }}>
             {t('route.sub')}
@@ -207,6 +261,7 @@ export function CategoryScreen() {
                 aria-selected={selected}
                 onPress={() => {
                   draft.set({ ledgerId: id });
+                  setShowMore(false);
                   setOverlay(null);
                 }}
                 style={{
@@ -237,7 +292,10 @@ export function CategoryScreen() {
             accessibilityRole="button"
             onPress={() => {
               setOverlay(null);
-              router.push({ pathname: '/ledger/new', params: { currency: draft.currency, then: 'back' } });
+              router.push({
+                pathname: '/ledger/new',
+                params: { entryCurrency: draft.currency, then: 'back' },
+              });
             }}
             style={{
               minHeight: 56,
@@ -253,7 +311,7 @@ export function CategoryScreen() {
             }}
           >
             <Icon name="plus" size={18} color={colors.text} />
-            <Txt size={15}>{t('route.newLedger', { cur: draft.currency })}</Txt>
+            <Txt size={15}>{t('route.newLedger')}</Txt>
           </Pressable>
         </Sheet>
       )}
@@ -278,9 +336,12 @@ export function CategoryScreen() {
                 {ledgerLabel}
               </Txt>
             </View>
-            <Txt font="heading" size={26} tabular>
-              {amount}
-            </Txt>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Txt font="heading" size={26} tabular>
+                {amount}
+              </Txt>
+              {conversion.kind === 'converted' && conversionLine(13)}
+            </View>
           </View>
           <View
             style={{
@@ -304,7 +365,7 @@ export function CategoryScreen() {
               accessibilityLabel={t('entry.note')}
               autoFocus
               returnKeyType="done"
-              onSubmitEditing={save}
+              onSubmitEditing={() => save()}
               maxLength={200}
               style={{
                 flex: 1,
@@ -341,8 +402,45 @@ export function CategoryScreen() {
               }}
             />
           )}
-          <PillButton label={t('common.save')} height={58} fontSize={20} onPress={save} />
+          <PillButton label={t('common.save')} height={58} fontSize={20} onPress={() => save()} />
         </Sheet>
+      )}
+
+      {overlay === 'fxInfo' && conversion.kind === 'converted' && (
+        <FxInfoSheet
+          amountMinor={minor}
+          currency={conversion.currency}
+          settleCurrency={conversion.settleCurrency}
+          rate={conversion.rate}
+          source={conversion.source}
+          ledgerName={ledger.name}
+          hasLedgerRate={!!ledger.rates?.[draft.currency]}
+          onSetRate={(rate) =>
+            draft.set({ manualRate: rate ? { rate, settleCurrency: ledger.currency } : null })
+          }
+          onOpenLedgerRates={() => {
+            setOverlay(null);
+            router.push({ pathname: '/ledger/rates/[id]', params: { id: ledger.id } });
+          }}
+          onClose={() => setOverlay(draft.categoryCode ? 'note' : null)}
+        />
+      )}
+      {overlay === 'addRate' && (
+        <LedgerRateSheet
+          ledgerName={ledger.name}
+          currency={draft.currency}
+          settleCurrency={ledger.currency}
+          onSave={(rate) => {
+            const rates = { ...ledger.rates, [draft.currency]: rate };
+            repo.updateLedger(ledger.id, { rates });
+            if (saveAfterRate) return save(rates);
+            setOverlay(null);
+          }}
+          onClose={() => {
+            setSaveAfterRate(false);
+            setOverlay(draft.categoryCode ? 'note' : null);
+          }}
+        />
       )}
     </Screen>
   );

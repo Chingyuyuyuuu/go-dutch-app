@@ -10,8 +10,15 @@ import type { CategoryCode } from '@/lib/categories';
 import { getCurrency } from '@/lib/currency';
 import { addDays, formatDate, todayLocal, type LocalDate } from '@/lib/date';
 import type { Frequency, Ledger, RecurringKind } from '@/lib/domain';
-import { personalLedgersFor } from '@/lib/ledgers';
-import { formatMoney, inputToMinor, minorToInput, sanitizeAmountText } from '@/lib/money';
+import { lastPersonalLedgerId } from '@/lib/ledgers';
+import {
+  formatMoney,
+  inputDecimals,
+  inputToMinor,
+  isoDecimals,
+  minorToInput,
+  sanitizeAmountText,
+} from '@/lib/money';
 import {
   AFTERPAY_PAYMENTS,
   chargesBefore,
@@ -70,9 +77,8 @@ export function RecurringFormScreen() {
   const defaultLedger = (k: RecurringKind): Ledger | undefined => {
     const list = ledgersFor(k);
     if (k === 'split') return list[0];
-    const cur = profile.starredCurrencies[0];
-    const last = cur ? profile.lastUsedLedger[cur] : undefined;
-    return list.find((l) => l.id === last) ?? (cur ? personalLedgersFor(cur, list)[0] : undefined) ?? list[0];
+    const last = lastPersonalLedgerId(profile, list);
+    return list.find((l) => l.id === last) ?? list[0];
   };
   const myMemberId = (ledger: Ledger | undefined) =>
     ledger?.members.find((m) => m.uid === repo.uid && m.leftAt === null)?.id ?? null;
@@ -85,8 +91,11 @@ export function RecurringFormScreen() {
   const [ledgerId, setLedgerId] = useState<string | null>(initialLedger?.id ?? null);
   const ledger = activeLedgers.find((l) => l.id === ledgerId);
   const currency = ledger?.currency ?? profile.starredCurrencies[0] ?? 'AUD';
-  const { symbol, minorUnits } = getCurrency(currency);
-  const [amount, setAmount] = useState(editing ? minorToInput(editing.amountMinor, minorUnits) : '');
+  const { symbol } = getCurrency(currency);
+  const typed = inputDecimals(currency);
+  const [amount, setAmount] = useState(
+    editing ? minorToInput(editing.amountMinor, isoDecimals(currency)) : '',
+  );
   const [frequency, setFrequency] = useState<Frequency>(editing?.frequency ?? DEFAULTS.regular.frequency);
   const [category, setCategory] = useState<CategoryCode>(editing?.categoryCode ?? DEFAULTS.regular.category);
   const [startDate, setStartDate] = useState<LocalDate>(editing?.startDate ?? today);
@@ -97,7 +106,7 @@ export function RecurringFormScreen() {
   );
   const [overlay, setOverlay] = useState<Overlay>(null);
 
-  const amountMinor = inputToMinor(amount, minorUnits);
+  const amountMinor = inputToMinor(amount, isoDecimals(currency));
   const isAfterpay = kind === 'instalment';
   const remindOn = remind ?? isAfterpay;
   const effectiveFrequency: Frequency = isAfterpay ? 'fortnightly' : frequency;
@@ -384,8 +393,8 @@ export function RecurringFormScreen() {
           </Txt>
           <TextInput
             value={amount}
-            onChangeText={(text) => setAmount(sanitizeAmountText(text, minorUnits))}
-            keyboardType={minorUnits ? 'decimal-pad' : 'number-pad'}
+            onChangeText={(text) => setAmount(sanitizeAmountText(text, typed))}
+            keyboardType={typed ? 'decimal-pad' : 'number-pad'}
             accessibilityLabel={isAfterpay ? t('recurring.total') : t('recurring.amount')}
             placeholder="0"
             placeholderTextColor={colors.neutral[500]}
@@ -659,7 +668,7 @@ export function RecurringFormScreen() {
                 setLedgerId(l.id);
                 if (kind === 'split') setPayerId(myMemberId(l));
                 // Amounts keep their digits; a currency with fewer decimals drops the extra ones.
-                setAmount((a) => sanitizeAmountText(a, getCurrency(l.currency).minorUnits));
+                setAmount((a) => sanitizeAmountText(a, inputDecimals(l.currency)));
                 setOverlay(null);
               }}
             />
